@@ -20,14 +20,14 @@ struct SettingsView: View {
 
     var body: some View {
         ZStack {
-            Color(hex: "#0A0A0F").ignoresSafeArea()
+            Color.black.ignoresSafeArea()
 
             List {
                 // ── Connection ────────────────────────────────────────────
                 Section {
                     HStack {
                         Image(systemName: "network")
-                            .foregroundStyle(.cyan)
+                            .foregroundStyle(.gray)
                             .frame(width: 28)
                         TextField("192.168.x.x", text: $editableIP)
                             .keyboardType(.decimalPad)
@@ -45,7 +45,8 @@ struct SettingsView: View {
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent)
-                        .tint(.cyan)
+                        .tint(Color(white: 0.2))
+                        .foregroundStyle(.white)
                         .disabled(socket.connectionState == .connecting)
 
                         Button {
@@ -66,13 +67,14 @@ struct SettingsView: View {
                 } header: {
                     Text("PC Connection")
                 }
-                .listRowBackground(Color.white.opacity(0.05))
+                .listRowBackground(Color(white: 0.05))
 
                 // ── Features ──────────────────────────────────────────────
                 Section {
                     Toggle(isOn: $clipboardEnabled) {
                         Label("Clipboard Sync", systemImage: "doc.on.clipboard")
                     }
+                    .tint(.green)
                     .onChange(of: clipboardEnabled) { _, enabled in
                         if enabled {
                             ClipboardSync.shared.isEnabled = true
@@ -85,16 +87,17 @@ struct SettingsView: View {
                     Toggle(isOn: $debugEnabled) {
                         Label("Debug Overlay", systemImage: "terminal")
                     }
+                    .tint(.green)
                 } header: {
                     Text("Features")
                 }
-                .listRowBackground(Color.white.opacity(0.05))
+                .listRowBackground(Color(white: 0.05))
 
                 // ── Signing Status ────────────────────────────────────────
                 Section {
                     HStack {
                         Image(systemName: daysUntilExpiry > 2 ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
-                            .foregroundStyle(daysUntilExpiry > 2 ? .green : .orange)
+                            .foregroundStyle(daysUntilExpiry > 2 ? .green : .red)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("IPA Signing Expiry")
                                 .font(.body)
@@ -103,19 +106,19 @@ struct SettingsView: View {
                                  ? "\(daysUntilExpiry) day(s) remaining — re-sign via AltStore"
                                  : "Expired — re-sign with AltStore now")
                                 .font(.caption)
-                                .foregroundStyle(daysUntilExpiry > 0 ? Color.secondary : Color.red)
+                                .foregroundStyle(daysUntilExpiry > 0 ? .gray : .red)
                         }
                     }
                     Button("Reset Install Date") {
                         installDateRaw = Date().timeIntervalSince1970
                     }
-                    .foregroundStyle(.cyan)
+                    .foregroundStyle(.white)
                 } header: {
                     Text("AltStore Signing (Free Account)")
                 } footer: {
                     Text("Free Apple ID sideloads expire after 7 days. Keep AltServer running on your PC over Wi-Fi for auto-refresh.")
                 }
-                .listRowBackground(Color.white.opacity(0.05))
+                .listRowBackground(Color(white: 0.05))
 
                 // ── About ────────────────────────────────────────────────
                 Section {
@@ -126,7 +129,7 @@ struct SettingsView: View {
                 } header: {
                     Text("About")
                 }
-                .listRowBackground(Color.white.opacity(0.05))
+                .listRowBackground(Color(white: 0.05))
             }
             .scrollContentBackground(.hidden)
         }

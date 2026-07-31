@@ -27,13 +27,13 @@ struct WatchDashboardView: View {
 
                 // CPU / GPU row
                 HStack(spacing: 8) {
-                    WatchMetricCard(label: "CPU", value: t.cpuUsage, color: .cyan)
-                    WatchMetricCard(label: "GPU", value: t.gpuUsage, color: .purple)
+                    WatchMetricCard(label: "CPU", value: t.cpuUsage)
+                    WatchMetricCard(label: "GPU", value: t.gpuUsage)
                 }
                 // RAM / VRAM row
                 HStack(spacing: 8) {
-                    WatchMetricCard(label: "RAM", value: t.ramUsage, color: .green)
-                    WatchMetricCard(label: "VRAM", value: t.vramUsage, color: .orange)
+                    WatchMetricCard(label: "RAM", value: t.ramUsage)
+                    WatchMetricCard(label: "VRAM", value: t.vramUsage)
                 }
                 // Temps
                 HStack(spacing: 12) {
@@ -45,7 +45,7 @@ struct WatchDashboardView: View {
                 if !session.telemetry.isEmpty {
                     Text("Updated \(t.ageString)")
                         .font(.system(size: 9))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.gray)
                 }
             }
             .padding(.horizontal, 6)
@@ -59,13 +59,16 @@ struct WatchDashboardView: View {
 private struct WatchMetricCard: View {
     let label: String
     let value: Int
-    let color: Color
+
+    private var color: Color {
+        value > 80 ? .red : .green
+    }
 
     var body: some View {
         VStack(spacing: 4) {
             ZStack {
                 Circle()
-                    .stroke(.white.opacity(0.1), lineWidth: 4)
+                    .stroke(.white.opacity(0.15), lineWidth: 4)
                 Circle()
                     .trim(from: 0, to: CGFloat(value) / 100.0)
                     .stroke(color, style: StrokeStyle(lineWidth: 4, lineCap: .round))
@@ -78,11 +81,10 @@ private struct WatchMetricCard: View {
             .frame(width: 52, height: 52)
             Text(label)
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(color)
+                .foregroundStyle(.white)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
-        .background(color.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
     }
 }
 
@@ -91,14 +93,14 @@ private struct WatchTempRow: View {
     let temp: Int
 
     private var color: Color {
-        temp < 70 ? .green : temp < 85 ? .yellow : .red
+        temp > 85 ? .red : .green
     }
 
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: "thermometer.medium")
                 .font(.system(size: 10))
-                .foregroundStyle(color)
+                .foregroundStyle(.gray)
             Text("\(label) \(temp)°")
                 .font(.system(size: 12, weight: .semibold).monospacedDigit())
                 .foregroundStyle(color)

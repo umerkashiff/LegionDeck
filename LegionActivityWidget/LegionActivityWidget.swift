@@ -49,7 +49,7 @@ struct LegionActivityWidget: Widget {
                 HStack(spacing: 3) {
                     Image(systemName: "cpu")
                         .font(.system(size: 9, weight: .medium))
-                        .foregroundStyle(.cyan)
+                        .foregroundStyle(.gray)
                     Text("\(context.state.cpuUsage)%")
                         .font(.system(size: 12, weight: .semibold).monospacedDigit())
                         .foregroundStyle(metricColor(context.state.cpuUsage))
@@ -62,7 +62,7 @@ struct LegionActivityWidget: Widget {
                 HStack(spacing: 3) {
                     Image(systemName: "memorychip")
                         .font(.system(size: 9, weight: .medium))
-                        .foregroundStyle(.purple)
+                        .foregroundStyle(.gray)
                     Text("\(context.state.gpuUsage)%")
                         .font(.system(size: 12, weight: .semibold).monospacedDigit())
                         .foregroundStyle(metricColor(context.state.gpuUsage))
@@ -97,14 +97,14 @@ private struct LockScreenBannerView: View {
         VStack(spacing: 8) {
             HStack {
                 Image(systemName: "desktopcomputer")
-                    .foregroundStyle(.cyan)
+                    .foregroundStyle(.white)
                 Text(pcName)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.white)
                 Spacer()
                 Text("LegionDeck")
                     .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.5))
+                    .foregroundStyle(.gray)
             }
 
             HStack(spacing: 12) {
@@ -138,10 +138,10 @@ private struct IslandMetricRow: View {
             if isTrailing { Spacer() }
             Image(systemName: icon)
                 .font(.system(size: 10))
-                .foregroundStyle(.white.opacity(0.6))
+                .foregroundStyle(.gray)
             Text(label)
                 .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.white.opacity(0.6))
+                .foregroundStyle(.gray)
             Text("\(value)\(unit)")
                 .font(.system(size: 11, weight: .bold).monospacedDigit())
                 .foregroundStyle(metricColor(value))
@@ -164,16 +164,16 @@ private struct MetricBar: View {
             GeometryReader { geo in
                 ZStack(alignment: .bottom) {
                     RoundedRectangle(cornerRadius: 3)
-                        .fill(.white.opacity(0.1))
+                        .fill(Color(white: 0.15))
                     RoundedRectangle(cornerRadius: 3)
-                        .fill(metricColor(value).gradient)
-                        .frame(height: geo.size.height * CGFloat(value) / 100.0)
+                        .fill(metricColor(value))
+                        .frame(height: max(0, geo.size.height * CGFloat(value) / 100.0))
                 }
             }
             .frame(width: 20, height: 30)
             Text(label)
                 .font(.system(size: 9, weight: .medium))
-                .foregroundStyle(.white.opacity(0.5))
+                .foregroundStyle(.gray)
         }
     }
 }
@@ -186,7 +186,7 @@ private struct TempBadge: View {
         HStack(spacing: 3) {
             Image(systemName: "thermometer.medium")
                 .font(.system(size: 9))
-                .foregroundStyle(tempColor(temp))
+                .foregroundStyle(.gray)
             Text("\(label) \(temp)°C")
                 .font(.system(size: 10, weight: .medium).monospacedDigit())
                 .foregroundStyle(tempColor(temp))
@@ -198,17 +198,9 @@ private struct TempBadge: View {
 // MARK: - Color Helpers
 
 private func metricColor(_ value: Int) -> Color {
-    switch value {
-    case 0..<61:  return .green
-    case 61..<81: return .yellow
-    default:      return .red
-    }
+    value > 80 ? .red : .green
 }
 
 private func tempColor(_ temp: Int) -> Color {
-    switch temp {
-    case 0..<70:  return .green
-    case 70..<85: return .yellow
-    default:      return .red
-    }
+    temp > 85 ? .red : .green
 }

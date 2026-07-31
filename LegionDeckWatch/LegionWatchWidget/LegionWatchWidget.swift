@@ -96,7 +96,7 @@ private struct CircularView: View {
             if !dimmed {
                 Circle()
                     .trim(from: 0, to: CGFloat(entry.cpu) / 100.0)
-                    .stroke(.cyan, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                    .stroke(.white, style: StrokeStyle(lineWidth: 4, lineCap: .round))
                     .rotationEffect(.degrees(-90))
             }
             VStack(spacing: 1) {
@@ -120,10 +120,10 @@ private struct RectangularView: View {
             HStack {
                 Image(systemName: "desktopcomputer")
                     .font(.system(size: 9))
-                    .foregroundStyle(.cyan)
+                    .foregroundStyle(.white)
                 Text("LEGION PC")
                     .font(.system(size: 10, weight: .black))
-                    .foregroundStyle(.cyan)
+                    .foregroundStyle(.white)
                     .tracking(0.5)
             }
             HStack(spacing: 10) {
@@ -162,7 +162,7 @@ private struct CornerView: View {
                 Gauge(value: Double(entry.gpu), in: 0...100) {
                     Text("GPU")
                 }
-                .tint(.purple)
+                .tint(.white)
                 .gaugeStyle(.accessoryLinear)
             }
     }
