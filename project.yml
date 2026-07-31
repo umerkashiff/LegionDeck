@@ -20,6 +20,7 @@ targets:
     dependencies:
       - target: LegionActivityWidget
       - target: LegionDeckWatch
+        embed: true
 
   LegionActivityWidget:
     type: app-extension
@@ -38,7 +39,7 @@ targets:
       SKIP_INSTALL: "YES"
 
   LegionDeckWatch:
-    type: watchos.application
+    type: application
     platform: watchOS
     deploymentTarget: "10.0"
     sources:
