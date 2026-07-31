@@ -36,9 +36,14 @@ struct LegionActivityWidget: Widget {
                         TempBadge(label: "CPU", temp: context.state.tempCpu)
                         TempBadge(label: "GPU", temp: context.state.tempGpu)
                         Spacer()
-                        Text(context.attributes.pcName)
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.5))
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text(context.attributes.pcName)
+                                .font(.caption2)
+                                .foregroundStyle(.white.opacity(0.8))
+                            Text("Dev by Umer Kashif")
+                                .font(.system(size: 8))
+                                .foregroundStyle(.white.opacity(0.3))
+                        }
                     }
                     .padding(.horizontal, 12)
                     .padding(.bottom, 4)
@@ -102,9 +107,14 @@ private struct LockScreenBannerView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.white)
                 Spacer()
-                Text("LegionDeck")
-                    .font(.caption2)
-                    .foregroundStyle(.gray)
+                VStack(alignment: .trailing, spacing: 0) {
+                    Text("LegionDeck")
+                        .font(.caption2)
+                        .foregroundStyle(.gray)
+                    Text("Dev by Umer Kashif")
+                        .font(.system(size: 8))
+                        .foregroundStyle(.gray.opacity(0.5))
+                }
             }
 
             HStack(spacing: 12) {

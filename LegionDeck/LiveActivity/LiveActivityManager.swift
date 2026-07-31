@@ -18,6 +18,13 @@ final class LiveActivityManager {
             return
         }
         guard activity == nil else { return }
+        
+        // Clean up any lingering activities from previous launches (fixes duplicate bug)
+        Task {
+            for existing in Activity<LegionActivityAttributes>.activities {
+                await existing.end(nil, dismissalPolicy: .immediate)
+            }
+        }
 
         let attributes = LegionActivityAttributes(pcName: pcName)
         let state = contentState(from: telemetry)
