@@ -11,8 +11,8 @@ struct LegionActivityWidget: Widget {
         ActivityConfiguration(for: LegionActivityAttributes.self) { context in
             // ── Lock Screen / StandBy Banner ───────────────────────────────
             LockScreenBannerView(state: context.state, pcName: context.attributes.pcName)
-                .activityBackgroundTint(.black.opacity(0.85))
-                .activitySystemActionForegroundColor(.white)
+                .activityBackgroundTint(Color.black.opacity(0.85))
+                .activitySystemActionForegroundColor(Color.white)
 
         } dynamicIsland: { context in
             DynamicIsland {

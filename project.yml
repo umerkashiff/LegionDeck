@@ -28,8 +28,6 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: LegionActivityWidget
-        excludes:
-          - "LegionActivityAttributes.swift"
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.legiondeck.app.ActivityWidget
       INFOPLIST_FILE: LegionActivityWidget/Info.plist
