@@ -40,70 +40,72 @@ struct DebugOverlayView: View {
             isExpanded.toggle()
         } label: {
             HStack(spacing: 6) {
-                Image(systemName: "terminal.fill")
+                Image(systemName: "terminal")
                     .font(.caption)
                 Text("\(logger.lines.count)")
                     .font(.caption.monospacedDigit())
-                    .fontWeight(.semibold)
+                    .fontWeight(.medium)
             }
-            .foregroundStyle(.green)
+            .foregroundStyle(.white)
             .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .background(.ultraThinMaterial, in: Capsule())
-            .overlay(Capsule().strokeBorder(.green.opacity(0.4), lineWidth: 1))
+            .padding(.vertical, 8)
+            .background(Color(white: 0.15))
+            .clipShape(Capsule())
+            .overlay(Capsule().strokeBorder(Color(white: 0.3), lineWidth: 1))
         }
-        .scaleEffect(isDragging ? 0.93 : 1.0)
+        .scaleEffect(isDragging ? 0.95 : 1.0)
     }
 
     // MARK: - Expanded Console Panel
     private var expandedPanel: some View {
         VStack(alignment: .leading, spacing: 0) {
             headerBar
-            Divider().overlay(Color.green.opacity(0.3))
+            Divider().overlay(Color(white: 0.2))
             logList
         }
-        .frame(width: 320, height: 260)
-        .background(Color.black.opacity(0.85), in: RoundedRectangle(cornerRadius: 12))
+        .frame(width: 320, height: 280)
+        .background(Color(white: 0.05), in: RoundedRectangle(cornerRadius: 12))
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(Color.green.opacity(0.3), lineWidth: 1)
+                .strokeBorder(Color(white: 0.2), lineWidth: 1)
         )
-        .shadow(color: Color.green.opacity(0.15), radius: 10)
+        .shadow(color: .black.opacity(0.5), radius: 10, y: 5)
     }
 
     private var headerBar: some View {
         HStack {
-            Image(systemName: "terminal.fill")
-                .foregroundStyle(Color.green)
-            Text("LegionDeck Debug Console")
-                .font(.caption.monospaced())
-                .foregroundStyle(Color.green)
+            Image(systemName: "terminal")
+                .foregroundStyle(.gray)
+            Text("Debug Console")
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.white)
             Spacer()
             Button {
                 isExpanded = false
             } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .foregroundStyle(Color.green.opacity(0.7))
+                Image(systemName: "xmark")
+                    .font(.caption)
+                    .foregroundStyle(.gray)
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(Color.black.opacity(0.7))
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Color(white: 0.1))
     }
 
     private var logList: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 2) {
+                LazyVStack(alignment: .leading, spacing: 4) {
                     ForEach(logger.lines) { line in
                         Text(line.display)
-                            .font(.system(size: 10, design: .monospaced))
-                            .foregroundStyle(Color.green)
+                            .font(.system(size: 10, weight: .regular, design: .monospaced))
+                            .foregroundStyle(Color(white: 0.8))
                             .textSelection(.enabled)
                             .id(line.id)
                     }
                 }
-                .padding(8)
+                .padding(10)
             }
             .onChange(of: logger.lines.count) { _, _ in
                 if let last = logger.lines.last {

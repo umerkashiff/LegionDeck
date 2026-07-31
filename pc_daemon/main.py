@@ -209,6 +209,7 @@ async def _broadcast_loop():
     await asyncio.sleep(0.5)
 
     log.info("Broadcast loop running at 1 Hz.")
+    last_clip = ""
 
     while True:
         try:
@@ -216,6 +217,14 @@ async def _broadcast_loop():
             gpu_data  = _read_gpu()
             lhm_data  = _read_lhm_temps()
             clipboard = _read_clipboard()
+
+            if clipboard != last_clip:
+                if clipboard == "":
+                    log.debug("PC Clipboard is empty or unsupported format.")
+                else:
+                    preview = clipboard[:40] + ("..." if len(clipboard) > 40 else "")
+                    log.info(f"PC Clipboard changed: '{preview}'")
+                last_clip = clipboard
 
             payload = {
                 "cpu_usage":  sys_data["cpu_usage"],
