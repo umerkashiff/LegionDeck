@@ -206,7 +206,7 @@ async def _handle_command(raw: str):
         dx = msg.get("dx", 0)
         dy = msg.get("dy", 0)
         try:
-            pyautogui.moveRel(dx, dy)
+            pyautogui.moveRel(int(dx), int(dy))
         except Exception: pass
 
     elif action == "mouse_click":
