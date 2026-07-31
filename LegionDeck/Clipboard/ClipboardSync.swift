@@ -16,7 +16,10 @@ final class ClipboardSync {
     private var lastReceivedText: String = ""
 
     var isEnabled: Bool {
-        get { UserDefaults.standard.bool(forKey: "clipboard_sync_enabled") }
+        get { 
+            if UserDefaults.standard.object(forKey: "clipboard_sync_enabled") == nil { return true }
+            return UserDefaults.standard.bool(forKey: "clipboard_sync_enabled") 
+        }
         set { UserDefaults.standard.set(newValue, forKey: "clipboard_sync_enabled") }
     }
 
