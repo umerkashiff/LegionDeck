@@ -59,7 +59,6 @@ struct SettingsView: View {
                         .tint(.red)
                     }
                     HStack {
-                        ConnectionDot(state: socket.connectionState)
                         Text(socket.connectionState.label)
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -93,39 +92,13 @@ struct SettingsView: View {
                 }
                 .listRowBackground(Color(white: 0.05))
 
-                // ── Signing Status ────────────────────────────────────────
-                Section {
-                    HStack {
-                        Image(systemName: daysUntilExpiry > 2 ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
-                            .foregroundStyle(daysUntilExpiry > 2 ? .green : .red)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("IPA Signing Expiry")
-                                .font(.body)
-                                .foregroundStyle(.white)
-                            Text(daysUntilExpiry > 0
-                                 ? "\(daysUntilExpiry) day(s) remaining — re-sign via AltStore"
-                                 : "Expired — re-sign with AltStore now")
-                                .font(.caption)
-                                .foregroundStyle(daysUntilExpiry > 0 ? .gray : .red)
-                        }
-                    }
-                    Button("Reset Install Date") {
-                        installDateRaw = Date().timeIntervalSince1970
-                    }
-                    .foregroundStyle(.white)
-                } header: {
-                    Text("AltStore Signing (Free Account)")
-                } footer: {
-                    Text("Free Apple ID sideloads expire after 7 days. Keep AltServer running on your PC over Wi-Fi for auto-refresh.")
-                }
-                .listRowBackground(Color(white: 0.05))
-
                 // ── About ────────────────────────────────────────────────
                 Section {
                     LabeledContent("App", value: "LegionDeck")
                     LabeledContent("Target", value: "iPhone 16 Pro · iOS 27")
                     LabeledContent("Watch", value: "Series 8 · watchOS 26.5")
                     LabeledContent("Daemon Port", value: ":8765")
+                    LabeledContent("Credits", value: "Developed and Designed by Umer Kashif")
                 } header: {
                     Text("About")
                 }

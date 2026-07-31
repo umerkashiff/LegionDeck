@@ -50,7 +50,6 @@ struct DashboardView: View {
                     .foregroundStyle(.white)
                 
                 HStack(spacing: 6) {
-                    ConnectionDot(state: socket.connectionState)
                     Text(socket.connectionState.label)
                         .font(.caption.weight(.medium))
                         .foregroundStyle(socket.connectionState == .connected ? .green : .red)

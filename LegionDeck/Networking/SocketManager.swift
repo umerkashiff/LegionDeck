@@ -71,12 +71,23 @@ final class SocketManager: ObservableObject {
         self.task = ws
         ws.resume()
 
-        connectionState = .connected
-        backoffSeconds = 1.0
-        DebugLogger.shared.log("✅ Connected to \(serverIP):8765")
-
-        // Start receive loop
-        receiveMessage()
+        // Verify the connection actually succeeded before marking as connected
+        ws.sendPing { [weak self] error in
+            Task { @MainActor in
+                guard let self = self else { return }
+                if let error = error {
+                    DebugLogger.shared.log("❌ Connection failed: \(error.localizedDescription)")
+                    self.connectionState = .disconnected
+                } else {
+                    self.connectionState = .connected
+                    self.backoffSeconds = 1.0
+                    DebugLogger.shared.log("✅ Connected to \(self.serverIP):8765")
+                    
+                    // Start receive loop
+                    self.receiveMessage()
+                }
+            }
+        }
     }
 
     private func receiveMessage() {
