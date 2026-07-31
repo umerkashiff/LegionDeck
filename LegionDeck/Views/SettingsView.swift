@@ -52,6 +52,7 @@ struct SettingsView: View {
 
                         Button {
                             socket.disconnect()
+                            BackgroundEngine.shared.stop()
                         } label: {
                             Label("Disconnect", systemImage: "xmark.circle")
                                 .frame(maxWidth: .infinity)
