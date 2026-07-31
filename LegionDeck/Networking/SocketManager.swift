@@ -120,8 +120,8 @@ final class SocketManager: ObservableObject {
         if let text { dict["text"] = text }
         guard let data = try? JSONSerialization.data(withJSONObject: dict),
               let str = String(data: data, encoding: .utf8) else { return }
-        task?.send(.string(str)) { [weak self] error in
-            if let error {
+        task?.send(.string(str)) { error in
+            if let error = error {
                 Task { @MainActor in
                     DebugLogger.shared.log("❌ Send error: \(error.localizedDescription)")
                 }

@@ -4,7 +4,7 @@ import os
 // MARK: - DebugLogger
 /// Thread-safe singleton that captures log messages for the in-app debug overlay.
 /// Also mirrors output to Xcode console via `os_log`.
-final class DebugLogger {
+final class DebugLogger: ObservableObject {
 
     static let shared = DebugLogger()
 

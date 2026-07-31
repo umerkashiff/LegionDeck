@@ -103,7 +103,7 @@ struct SettingsView: View {
                                  ? "\(daysUntilExpiry) day(s) remaining — re-sign via AltStore"
                                  : "Expired — re-sign with AltStore now")
                                 .font(.caption)
-                                .foregroundStyle(daysUntilExpiry > 0 ? .secondary : .red)
+                                .foregroundStyle(daysUntilExpiry > 0 ? Color.secondary : Color.red)
                         }
                     }
                     Button("Reset Install Date") {
