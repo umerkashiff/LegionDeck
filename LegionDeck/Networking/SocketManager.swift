@@ -139,11 +139,9 @@ final class SocketManager: ObservableObject {
 
     // MARK: - Send Commands
 
-    /// Send a command to the Windows daemon.
-    func send(action: String, text: String? = nil) {
-        var dict: [String: Any] = ["action": action]
-        if let text { dict["text"] = text }
-        guard let data = try? JSONSerialization.data(withJSONObject: dict),
+    /// Send a dictionary payload to the Windows daemon.
+    func send(payload: [String: Any]) {
+        guard let data = try? JSONSerialization.data(withJSONObject: payload),
               let str = String(data: data, encoding: .utf8) else { return }
         task?.send(.string(str)) { error in
             if let error = error {
@@ -152,5 +150,12 @@ final class SocketManager: ObservableObject {
                 }
             }
         }
+    }
+
+    /// Send a simple action to the Windows daemon.
+    func send(action: String, text: String? = nil) {
+        var dict: [String: Any] = ["action": action]
+        if let text { dict["text"] = text }
+        send(payload: dict)
     }
 }

@@ -15,6 +15,13 @@ import time
 
 import psutil
 import pyperclip
+try:
+    import pyautogui
+    pyautogui.FAILSAFE = False
+    pyautogui.PAUSE = 0
+    PYAUTOGUI_AVAILABLE = True
+except ImportError:
+    PYAUTOGUI_AVAILABLE = False
 import websockets
 from websockets.server import WebSocketServerProtocol
 
@@ -193,6 +200,63 @@ async def _handle_command(raw: str):
         pyperclip.copy(text)
         preview = text[:50] + ("..." if len(text) > 50 else "")
         log.info(f"Clipboard set from iOS: '{preview}'")
+
+    elif action == "mouse_move":
+        if not PYAUTOGUI_AVAILABLE: return
+        dx = msg.get("dx", 0)
+        dy = msg.get("dy", 0)
+        try:
+            pyautogui.moveRel(dx, dy)
+        except Exception: pass
+
+    elif action == "mouse_click":
+        if not PYAUTOGUI_AVAILABLE: return
+        button = msg.get("button", "left")
+        try:
+            pyautogui.click(button=button)
+        except Exception: pass
+
+    elif action == "mouse_scroll":
+        if not PYAUTOGUI_AVAILABLE: return
+        dy = msg.get("dy", 0)
+        try:
+            pyautogui.scroll(dy)
+        except Exception: pass
+
+    elif action == "keyboard_type":
+        if not PYAUTOGUI_AVAILABLE: return
+        text = msg.get("text", "")
+        try:
+            pyautogui.write(text)
+        except Exception: pass
+        
+    elif action == "keyboard_press":
+        if not PYAUTOGUI_AVAILABLE: return
+        key = msg.get("key", "")
+        try:
+            pyautogui.press(key)
+        except Exception: pass
+
+    elif action == "launch_app":
+        app = msg.get("app", "")
+        log.info(f"Launch requested: {app}")
+        try:
+            if app == "steam":
+                import os
+                os.startfile("steam://open/main")
+            elif app == "discord":
+                import os
+                local_app_data = os.environ.get("LOCALAPPDATA", "")
+                discord_path = os.path.join(local_app_data, "Discord", "Update.exe")
+                subprocess.Popen([discord_path, "--processStart", "Discord.exe"])
+            elif app == "chrome":
+                subprocess.Popen(["start", "chrome"], shell=True)
+            elif app == "explorer":
+                subprocess.Popen("explorer.exe")
+            else:
+                log.warning(f"Unknown app launch requested: {app}")
+        except Exception as e:
+            log.error(f"Failed to launch {app}: {e}")
 
     else:
         log.warning(f"Unknown action received: '{action}'")

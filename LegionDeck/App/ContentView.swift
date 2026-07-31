@@ -22,6 +22,15 @@ struct ContentView: View {
                 .tag(0)
 
                 NavigationStack {
+                    TrackpadView(socket: socket)
+                        .navigationBarHidden(true)
+                }
+                .tabItem {
+                    Label("Trackpad", systemImage: "cursorarrow")
+                }
+                .tag(2)
+
+                NavigationStack {
                     SettingsView(socket: socket)
                 }
                 .tabItem {
