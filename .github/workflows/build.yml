@@ -1,0 +1,75 @@
+name: Build LegionDeck IPA
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:   # Allow manual trigger from GitHub Actions UI
+
+jobs:
+  build:
+    name: Build Unsigned IPA
+    runs-on: macos-14  # Apple Silicon M2
+
+    steps:
+      # 1. Checkout source
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Select latest stable Xcode (supports iOS 17+ SDK)
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: 'latest-stable'
+
+      - name: Install Xcodegen
+        run: brew install xcodegen
+
+      - name: Generate Xcode Project
+        run: xcodegen generate
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      # 3. Build & archive (no code signing)
+      - name: Build & Archive (unsigned)
+        run: |
+          xcodebuild archive \
+            -project LegionDeck.xcodeproj \
+            -scheme LegionDeck \
+            -destination "generic/platform=iOS" \
+            -configuration Release \
+            -archivePath "$RUNNER_TEMP/LegionDeck.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            PRODUCT_BUNDLE_IDENTIFIER=com.legiondeck.app \
+            | xcpretty || true
+          # Verify archive was created
+          ls -la "$RUNNER_TEMP/LegionDeck.xcarchive/Products/Applications/" || \
+            { echo "Archive failed — check build log above."; exit 1; }
+
+      # 4. Package into .ipa manually (bypasses exportArchive signing requirement)
+      - name: Package IPA
+        run: |
+          mkdir -p Payload
+          cp -r \
+            "$RUNNER_TEMP/LegionDeck.xcarchive/Products/Applications/LegionDeck.app" \
+            Payload/LegionDeck.app
+          zip -r LegionDeck.ipa Payload/
+          echo "IPA size: $(du -sh LegionDeck.ipa | cut -f1)"
+
+      # 5. Upload artifact (downloadable from Actions tab, 30-day retention)
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LegionDeck-${{ github.sha }}
+          path: LegionDeck.ipa
+          retention-days: 30
+
+      # 6. Summary
+      - name: Build Summary
+        run: |
+          echo "### LegionDeck Build Complete" >> $GITHUB_STEP_SUMMARY
+          echo "- Commit: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- IPA: Download from the Artifacts section above" >> $GITHUB_STEP_SUMMARY
+          echo "- Install: Sign with AltStore or Sideloadly, then install on iPhone 16 Pro" >> $GITHUB_STEP_SUMMARY

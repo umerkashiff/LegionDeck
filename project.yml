@@ -1,0 +1,70 @@
+name: LegionDeck
+options:
+  bundleIdPrefix: com.legiondeck
+  minimumXcodeGenVersion: 2.38.0
+
+targets:
+  LegionDeck:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: LegionDeck
+      - path: LegionActivityWidget/LegionActivityAttributes.swift
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.legiondeck.app
+      INFOPLIST_FILE: LegionDeck/Resources/Info.plist
+      CODE_SIGN_IDENTITY: ""
+      CODE_SIGNING_REQUIRED: "NO"
+      CODE_SIGNING_ALLOWED: "NO"
+    dependencies:
+      - target: LegionActivityWidget
+      - target: LegionDeckWatch
+
+  LegionActivityWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: LegionActivityWidget
+        excludes:
+          - "LegionActivityAttributes.swift"
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.legiondeck.app.ActivityWidget
+      INFOPLIST_FILE: LegionActivityWidget/Info.plist
+      CODE_SIGN_IDENTITY: ""
+      CODE_SIGNING_REQUIRED: "NO"
+      CODE_SIGNING_ALLOWED: "NO"
+      SKIP_INSTALL: "YES"
+
+  LegionDeckWatch:
+    type: watchos.application
+    platform: watchOS
+    deploymentTarget: "10.0"
+    sources:
+      - path: LegionDeckWatch
+        excludes:
+          - "LegionWatchWidget"
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.legiondeck.app.watchkitapp
+      INFOPLIST_FILE: LegionDeckWatch/Info.plist
+      CODE_SIGN_IDENTITY: ""
+      CODE_SIGNING_REQUIRED: "NO"
+      CODE_SIGNING_ALLOWED: "NO"
+      SKIP_INSTALL: "YES"
+    dependencies:
+      - target: LegionWatchWidget
+
+  LegionWatchWidget:
+    type: app-extension
+    platform: watchOS
+    deploymentTarget: "10.0"
+    sources:
+      - path: LegionDeckWatch/LegionWatchWidget
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.legiondeck.app.watchkitapp.Widget
+      INFOPLIST_FILE: LegionDeckWatch/LegionWatchWidget/Info.plist
+      CODE_SIGN_IDENTITY: ""
+      CODE_SIGNING_REQUIRED: "NO"
+      CODE_SIGNING_ALLOWED: "NO"
+      SKIP_INSTALL: "YES"
