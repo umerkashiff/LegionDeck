@@ -202,19 +202,24 @@ async def _handle_command(raw: str):
         log.info(f"Clipboard set from iOS: '{preview}'")
 
     elif action == "mouse_move":
-        if not PYAUTOGUI_AVAILABLE: return
+        if not PYAUTOGUI_AVAILABLE:
+            log.warning("mouse_move ignored: pyautogui not installed (pip install pyautogui)")
+            return
         dx = msg.get("dx", 0)
         dy = msg.get("dy", 0)
         try:
             pyautogui.moveRel(int(dx), int(dy))
-        except Exception: pass
+        except Exception as e:
+            log.error(f"mouse_move failed: {e}")
 
     elif action == "mouse_click":
         if not PYAUTOGUI_AVAILABLE: return
         button = msg.get("button", "left")
+        log.info(f"Mouse click: {button}")
         try:
             pyautogui.click(button=button)
-        except Exception: pass
+        except Exception as e:
+            log.error(f"mouse_click failed: {e}")
 
     elif action == "mouse_scroll":
         if not PYAUTOGUI_AVAILABLE: return
