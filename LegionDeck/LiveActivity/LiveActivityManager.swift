@@ -19,26 +19,27 @@ final class LiveActivityManager {
         }
         guard activity == nil else { return }
         
-        // Clean up any lingering activities from previous launches (fixes duplicate bug)
-        Task {
-            for existing in Activity<LegionActivityAttributes>.activities {
-                await existing.end(nil, dismissalPolicy: .immediate)
-            }
-        }
-
         let attributes = LegionActivityAttributes(pcName: pcName)
         let state = contentState(from: telemetry)
 
-        do {
-            let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(30))
-            activity = try Activity.request(
-                attributes: attributes,
-                content: content,
-                pushType: nil
-            )
-            DebugLogger.shared.log("🏝 Live Activity started (Dynamic Island active).")
-        } catch {
-            DebugLogger.shared.log("❌ Live Activity start failed: \(error.localizedDescription)")
+        Task {
+            // 1. Clean up any lingering activities first
+            for existing in Activity<LegionActivityAttributes>.activities {
+                await existing.end(nil, dismissalPolicy: .immediate)
+            }
+            
+            // 2. Create the new activity sequentially
+            do {
+                let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(30))
+                self.activity = try Activity.request(
+                    attributes: attributes,
+                    content: content,
+                    pushType: nil
+                )
+                DebugLogger.shared.log("🏝 Live Activity started (Dynamic Island active).")
+            } catch {
+                DebugLogger.shared.log("❌ Live Activity start failed: \(error.localizedDescription)")
+            }
         }
     }
 

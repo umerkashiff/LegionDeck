@@ -32,6 +32,12 @@ final class SocketManager: ObservableObject {
             DebugLogger.shared.log("⚠️ No IP address set — open Settings to configure.")
             return
         }
+        
+        // If already connected/connecting, do not spin up a duplicate connection!
+        if connectionState == .connected || connectionState == .connecting {
+            return
+        }
+        
         reconnectTask?.cancel()
         reconnectTask = Task { await connectLoop() }
     }
@@ -73,6 +79,7 @@ final class SocketManager: ObservableObject {
         connectionState = .connecting
         DebugLogger.shared.log("🔗 Connecting to \(url)…")
 
+        task?.cancel(with: .goingAway, reason: nil)
         let ws = URLSession.shared.webSocketTask(with: url)
         self.task = ws
         ws.resume()
