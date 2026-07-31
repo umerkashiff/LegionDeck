@@ -7,7 +7,7 @@ struct DebugOverlayView: View {
 
     @ObservedObject private var logger = DebugLogger.shared
     @State private var isExpanded = false
-    @State private var offset: CGSize = CGSize(width: 0, height: 200)
+    @State private var offset: CGSize = CGSize(width: 0, height: -60)
     @State private var isDragging = false
 
     var body: some View {
