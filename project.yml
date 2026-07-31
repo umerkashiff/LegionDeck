@@ -24,6 +24,7 @@ targets:
       TARGETED_DEVICE_FAMILY: "1"
     dependencies:
       - target: LegionActivityWidget
+        embed: true
 
   LegionActivityWidget:
     type: app-extension
