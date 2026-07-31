@@ -33,6 +33,17 @@
     <!-- Privacy descriptions (iOS will prompt user) -->
     <key>NSPasteboardUsageDescription</key>
     <string>LegionDeck syncs your clipboard between your iPhone and Windows PC.</string>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>LegionDeck needs to connect to the PC daemon on your local Wi-Fi.</string>
+
+    <!-- App Transport Security (Allow insecure ws:// to local IPs) -->
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsLocalNetworking</key>
+        <true/>
+        <key>NSAllowsArbitraryLoads</key>
+        <true/>
+    </dict>
 
     <!-- Minimum iOS version -->
     <key>MinimumOSVersion</key>
