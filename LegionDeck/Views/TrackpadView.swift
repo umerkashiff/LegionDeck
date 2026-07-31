@@ -6,6 +6,7 @@ struct TrackpadView: View {
     
     // For remote typing
     @State private var textInput: String = ""
+    @State private var showKeyboard: Bool = false
     @FocusState private var isKeyboardFocused: Bool
     
     // Feedback
@@ -21,10 +22,13 @@ struct TrackpadView: View {
                 trackpadSurface
                 
                 // Live Chat / Typing Box (Visible only when keyboard icon is tapped)
-                if isKeyboardFocused {
+                if showKeyboard {
                     HStack {
                         TextField("Type text to send...", text: $textInput)
                             .focused($isKeyboardFocused)
+                            .onAppear {
+                                isKeyboardFocused = true
+                            }
                             .autocorrectionDisabled()
                             .textInputAutocapitalization(.never)
                             .padding(.horizontal, 16)
@@ -61,6 +65,7 @@ struct TrackpadView: View {
         socket.send(payload: ["action": "keyboard_type", "text": textInput])
         DebugLogger.shared.log("⌨️ Sent: '\(textInput)'")
         textInput = "" // Clear after sending
+        isKeyboardFocused = true // Keep keyboard open for continuous typing
     }
     
     private var trackpadSurface: some View {
@@ -76,16 +81,19 @@ struct TrackpadView: View {
                 feedback.impactOccurred()
                 socket.send(payload: ["action": "mouse_click", "button": "left"])
                 DebugLogger.shared.log("🖱️ Left Click")
+                isKeyboardFocused = false
             },
             onTapRight: {
                 feedback.impactOccurred(intensity: 1.0)
                 socket.send(payload: ["action": "mouse_click", "button": "right"])
                 DebugLogger.shared.log("🖱️ Right Click")
+                isKeyboardFocused = false
             },
             onDragBegin: {
                 feedback.impactOccurred(intensity: 0.8)
                 socket.send(payload: ["action": "mouse_down"])
                 DebugLogger.shared.log("👆 Mouse Down (Drag Start)")
+                isKeyboardFocused = false
             },
             onDragEnd: {
                 feedback.impactOccurred(intensity: 0.5)
@@ -119,14 +127,14 @@ struct TrackpadView: View {
             
             Button {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                    isKeyboardFocused.toggle()
+                    showKeyboard.toggle()
                 }
             } label: {
                 Image(systemName: "keyboard")
                     .font(.title3)
-                    .foregroundStyle(isKeyboardFocused ? .black : .white)
+                    .foregroundStyle(showKeyboard ? .black : .white)
                     .frame(width: 44, height: 44)
-                    .background(isKeyboardFocused ? .white : Color(white: 0.15), in: Circle())
+                    .background(showKeyboard ? .white : Color(white: 0.15), in: Circle())
             }
         }
         .padding(.horizontal, 24)
