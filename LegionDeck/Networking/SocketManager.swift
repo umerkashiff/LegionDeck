@@ -99,7 +99,7 @@ final class SocketManager: ObservableObject {
                 }
                 
                 // Recursively call to receive the next message
-                self.receiveMessage()
+                Task { @MainActor in self.receiveMessage() }
                 
             case .failure(let error):
                 Task { @MainActor in

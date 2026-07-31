@@ -29,7 +29,7 @@ struct ContentView: View {
                 }
                 .tag(1)
             }
-            .tint(Color(hex: "#00D4FF"))
+            .tint(.white)
 
             // Floating debug overlay (bottom-right corner)
             if debugEnabled {
