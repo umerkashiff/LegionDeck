@@ -31,9 +31,11 @@ struct TrackpadView: View {
                     .onChange(of: textInput) { _, newValue in
                         if let lastChar = newValue.last {
                             socket.send(payload: ["action": "keyboard_type", "text": String(lastChar)])
+                            DebugLogger.shared.log("⌨️ Typed: '\(lastChar)'")
                         } else if newValue.isEmpty {
                             // Backspace was pressed (we just reset the string to avoid length buildup)
                             socket.send(payload: ["action": "keyboard_press", "key": "backspace"])
+                            DebugLogger.shared.log("⌨️ Typed: [Backspace]")
                         }
                         // Reset string so we always capture new typing without huge string buildup
                         if textInput.count > 5 {
@@ -54,46 +56,39 @@ struct TrackpadView: View {
     }
     
     private var trackpadSurface: some View {
-        Rectangle()
-            .fill(Color(white: 0.05))
-            .overlay(
-                VStack {
-                    Image(systemName: "hand.point.up.left")
-                        .font(.system(size: 40))
-                        .foregroundStyle(Color(white: 0.15))
-                    Text("Drag to move • Tap to click")
-                        .font(.caption)
-                        .foregroundStyle(Color(white: 0.2))
-                        .padding(.top, 8)
-                }
-            )
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        if let last = lastLocation {
-                            let now = Date()
-                            if now.timeIntervalSince(lastSendTime) > 0.016 {
-                                let dx = value.location.x - last.x
-                                let dy = value.location.y - last.y
-                                socket.send(payload: ["action": "mouse_move", "dx": dx * 1.5, "dy": dy * 1.5])
-                                lastSendTime = now
-                                lastLocation = value.location
-                            }
-                        } else {
-                            lastLocation = value.location
-                        }
-                    }
-                    .onEnded { _ in
-                        lastLocation = nil
-                    }
-            )
-            .simultaneousGesture(
-                TapGesture(count: 1)
-                    .onEnded {
-                        feedback.impactOccurred()
-                        socket.send(payload: ["action": "mouse_click", "button": "left"])
-                    }
-            )
+        TrackpadGestureView(
+            onMove: { delta in
+                // Scale movement slightly
+                socket.send(payload: ["action": "mouse_move", "dx": delta.x * 1.5, "dy": delta.y * 1.5])
+            },
+            onScroll: { delta in
+                // Scroll Y goes opposite to dy
+                socket.send(payload: ["action": "mouse_scroll", "dy": -delta.y])
+            },
+            onTapLeft: {
+                feedback.impactOccurred()
+                socket.send(payload: ["action": "mouse_click", "button": "left"])
+                DebugLogger.shared.log("🖱️ Left Click")
+            },
+            onTapRight: {
+                feedback.impactOccurred(intensity: 1.0)
+                socket.send(payload: ["action": "mouse_click", "button": "right"])
+                DebugLogger.shared.log("🖱️ Right Click")
+            }
+        )
+        .background(Color(white: 0.05))
+        .overlay(
+            VStack {
+                Image(systemName: "hand.point.up.left")
+                    .font(.system(size: 40))
+                    .foregroundStyle(Color(white: 0.15))
+                Text("1-Finger: Move / Click\n2-Finger: Scroll / Right-Click")
+                    .font(.caption)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(Color(white: 0.2))
+                    .padding(.top, 8)
+            }
+        )
     }
     
     private var bottomDock: some View {
@@ -125,6 +120,7 @@ struct TrackpadView: View {
         Button {
             feedback.impactOccurred()
             socket.send(payload: ["action": "launch_app", "app": app])
+            DebugLogger.shared.log("🚀 Launching \(app.capitalized)")
         } label: {
             Image(systemName: icon)
                 .font(.title2)
