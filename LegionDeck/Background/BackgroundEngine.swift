@@ -6,13 +6,13 @@ import AVFoundation
 /// is off or the user switches apps.
 ///
 /// Requires Info.plist: UIBackgroundModes = [audio]
-/// Works for sideloaded apps; App Store builds would be rejected for this.
 @MainActor
 final class BackgroundEngine {
 
     static let shared = BackgroundEngine()
 
-    private var player: AVAudioPlayer?
+    private var engine: AVAudioEngine?
+    private var playerNode: AVAudioPlayerNode?
     private var isRunning = false
 
     private init() {}
@@ -26,28 +26,46 @@ final class BackgroundEngine {
             try session.setCategory(.playback, options: [.mixWithOthers])
             try session.setActive(true)
 
-            // Load the bundled 1-second silent MP3
-            guard let url = Bundle.main.url(forResource: "silence", withExtension: "mp3") else {
-                DebugLogger.shared.log("⚠️ BackgroundEngine: silence.mp3 not found in bundle.")
-                return
+            engine = AVAudioEngine()
+            playerNode = AVAudioPlayerNode()
+            
+            guard let engine = engine, let playerNode = playerNode else { return }
+
+            engine.attach(playerNode)
+
+            // Create a standard format
+            guard let format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 1) else { return }
+            engine.connect(playerNode, to: engine.mainMixerNode, format: format)
+
+            try engine.start()
+
+            // Create a 1-second silent buffer programmatically (avoids needing an mp3 file)
+            let frameCount = AVAudioFrameCount(format.sampleRate)
+            guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else { return }
+            buffer.frameLength = frameCount
+
+            if let floatChannelData = buffer.floatChannelData {
+                for i in 0..<Int(frameCount) {
+                    floatChannelData[0][i] = 0.0 // True silence
+                }
             }
 
-            player = try AVAudioPlayer(contentsOf: url)
-            player?.numberOfLoops = -1   // infinite loop
-            player?.volume = 0.0         // completely silent
-            player?.prepareToPlay()
-            player?.play()
+            // Play on infinite loop
+            playerNode.scheduleBuffer(buffer, at: nil, options: .loops, completionHandler: nil)
+            playerNode.play()
 
             isRunning = true
-            DebugLogger.shared.log("🔇 BackgroundEngine: silent audio loop started.")
+            DebugLogger.shared.log("🔇 BackgroundEngine: Programmatic silent audio loop started.")
         } catch {
             DebugLogger.shared.log("❌ BackgroundEngine error: \(error.localizedDescription)")
         }
     }
 
     func stop() {
-        player?.stop()
-        player = nil
+        playerNode?.stop()
+        engine?.stop()
+        playerNode = nil
+        engine = nil
         isRunning = false
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         DebugLogger.shared.log("🔇 BackgroundEngine: audio loop stopped.")
