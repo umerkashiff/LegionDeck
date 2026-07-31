@@ -25,10 +25,7 @@ try:
 except ImportError:
     pass
 
-try:
-    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-except ImportError:
-    pass
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 try:
     import mss
@@ -37,7 +34,35 @@ try:
 except ImportError:
     MSS_AVAILABLE = False
 
-SECRET_KEY = b"LegionDeck_SecretKey_32_Bytes!!!"
+CONFIG_FILE = "config.json"
+DEFAULT_CONFIG = {
+    "encryption_key": "LegionDeck_SecretKey_32_Bytes!!!",
+    "locked_apps": ["Discord.exe", "Spotify.exe"]
+}
+
+def load_config():
+    if not os.path.exists(CONFIG_FILE):
+        save_config(DEFAULT_CONFIG)
+        return DEFAULT_CONFIG
+    try:
+        with open(CONFIG_FILE, 'r') as f:
+            return json.load(f)
+    except Exception:
+        return DEFAULT_CONFIG
+
+def save_config(cfg):
+    try:
+        with open(CONFIG_FILE, 'w') as f:
+            json.dump(cfg, f, indent=4)
+    except Exception:
+        pass
+
+CONFIG = load_config()
+SECRET_KEY = CONFIG.get("encryption_key", DEFAULT_CONFIG["encryption_key"]).encode('utf-8')
+if len(SECRET_KEY) != 32:
+    SECRET_KEY = DEFAULT_CONFIG["encryption_key"].encode('utf-8')
+
+LOCKED_APPS = CONFIG.get("locked_apps", DEFAULT_CONFIG["locked_apps"])
 
 def encrypt_payload(data: str) -> str:
     try:
@@ -251,7 +276,6 @@ def _read_volume() -> int:
 # Advanced Features (View Finder, App Lock, Secure Screen)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-LOCKED_APPS = ["Discord.exe", "Spotify.exe"]
 _authorized_apps = set()
 _auth_pending_apps = set()
 _viewfinder_active = False
@@ -274,9 +298,15 @@ async def _app_lock_engine():
                 name = proc.info['name']
                 if name and name in LOCKED_APPS:
                     if name not in _authorized_apps and name not in _auth_pending_apps:
-                        proc.suspend()
                         _auth_pending_apps.add(name)
-                        log.info(f"Locked {name}. Requesting FaceID.")
+                        log.info(f"Locked {name}. Suspending all instances & requesting FaceID.")
+                        
+                        # Suspend ALL instances immediately
+                        for p in psutil.process_iter(['name']):
+                            if p.info['name'] == name:
+                                try: p.suspend()
+                                except: pass
+                                
                         _broadcast_event({"action": "request_auth", "app": name, "type": "app_lock"})
         except Exception:
             pass
@@ -636,19 +666,120 @@ async def _main():
         )
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# Desktop System Tray GUI
+# ═══════════════════════════════════════════════════════════════════════════════
+
+try:
+    import pystray
+    import customtkinter as ctk
+    from PIL import ImageDraw
+    GUI_AVAILABLE = True
+except ImportError:
+    GUI_AVAILABLE = False
+
+_settings_app = None
+
+class SettingsWindow(ctk.CTk):
+    def __init__(self):
+        super().__init__()
+        self.title("LegionDeck Daemon")
+        self.geometry("450x350")
+        self.protocol("WM_DELETE_WINDOW", self.hide_window)
+        
+        self.label = ctk.CTkLabel(self, text="LegionDeck Settings", font=ctk.CTkFont(size=20, weight="bold"))
+        self.label.pack(pady=(20, 10))
+        
+        # ── Key
+        self.key_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.key_frame.pack(fill="x", padx=40, pady=10)
+        ctk.CTkLabel(self.key_frame, text="Encryption Key (32 bytes):").pack(anchor="w")
+        
+        self.key_var = tk.StringVar(value=CONFIG.get("encryption_key", ""))
+        self.key_entry = ctk.CTkEntry(self.key_frame, textvariable=self.key_var, show="*")
+        self.key_entry.pack(fill="x", pady=5)
+        
+        # ── Locked Apps
+        self.apps_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.apps_frame.pack(fill="x", padx=40, pady=10)
+        ctk.CTkLabel(self.apps_frame, text="Locked Apps (comma separated):").pack(anchor="w")
+        
+        self.apps_var = tk.StringVar(value=", ".join(LOCKED_APPS))
+        self.apps_entry = ctk.CTkEntry(self.apps_frame, textvariable=self.apps_var)
+        self.apps_entry.pack(fill="x", pady=5)
+        
+        # ── Save
+        self.save_btn = ctk.CTkButton(self, text="Save & Apply", command=self.save_settings)
+        self.save_btn.pack(pady=20)
+        
+    def save_settings(self):
+        global SECRET_KEY, LOCKED_APPS
+        key = self.key_var.get().strip()
+        apps = [a.strip() for a in self.apps_var.get().split(',') if a.strip()]
+        
+        CONFIG["encryption_key"] = key
+        CONFIG["locked_apps"] = apps
+        save_config(CONFIG)
+        
+        SECRET_KEY = key.encode('utf-8')
+        if len(SECRET_KEY) != 32:
+            SECRET_KEY = DEFAULT_CONFIG["encryption_key"].encode('utf-8')
+            
+        LOCKED_APPS = apps
+        self.hide_window()
+
+    def hide_window(self):
+        self.withdraw()
+
+def _create_tray_image():
+    image = Image.new('RGB', (64, 64), color='black')
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((16, 16, 48, 48), fill='cyan')
+    return image
+
+def _show_settings(icon, item):
+    if _settings_app:
+        _settings_app.after(0, _settings_app.deiconify)
+
+def _quit_app(icon, item):
+    icon.stop()
+    if _settings_app:
+        _settings_app.after(0, _settings_app.quit)
+    os._exit(0)
+
+def _setup_tray():
+    image = _create_tray_image()
+    menu = pystray.Menu(
+        pystray.MenuItem("Settings", _show_settings),
+        pystray.MenuItem("Quit", _quit_app)
+    )
+    icon = pystray.Icon("LegionDeck", image, "LegionDeck Daemon", menu)
+    icon.run()
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Entry Point
+# ═══════════════════════════════════════════════════════════════════════════════
+
 if __name__ == "__main__":
     try:
-        asyncio.run(_main())
+        # 1. Start the asyncio loop in a background thread
+        def _start_async_loop():
+            asyncio.run(_main())
+        threading.Thread(target=_start_async_loop, daemon=True).start()
+        
+        # 2. Setup GUI on the main thread
+        if GUI_AVAILABLE:
+            # pystray blocks, so we run it in a thread, allowing CTK to run mainloop
+            threading.Thread(target=_setup_tray, daemon=True).start()
+            
+            ctk.set_appearance_mode("dark")
+            _settings_app = SettingsWindow()
+            _settings_app.withdraw() # Start hidden
+            _settings_app.mainloop()
+        else:
+            log.warning("GUI dependencies missing. Running without System Tray.")
+            while True: time.sleep(1.0)
+            
     except KeyboardInterrupt:
         log.info("Interrupted — shutting down.")
-    finally:
-        if NVML_AVAILABLE:
-            try:
-                pynvml.nvmlShutdown()
-            except Exception:
-                pass
-        if LHM_AVAILABLE and _lhm_computer:
-            try:
-                _lhm_computer.Close()
-            except Exception:
-                pass
+        os._exit(0)
