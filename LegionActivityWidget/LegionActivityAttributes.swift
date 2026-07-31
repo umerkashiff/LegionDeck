@@ -16,6 +16,8 @@ struct LegionActivityAttributes: ActivityAttributes {
         var mediaTitle: String?
         var mediaArtist: String?
         var volume: Int?
+        
+        var isAuthRequested: Bool = false
     }
 
     /// Static context: PC name, set once when activity starts.

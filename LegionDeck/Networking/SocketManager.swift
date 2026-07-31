@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import UIKit
 
 // MARK: - SocketManager
 /// Manages the WebSocket connection to the Windows daemon.
@@ -45,6 +46,8 @@ final class SocketManager: ObservableObject {
     func disconnect() {
         reconnectTask?.cancel()
         reconnectTask = nil
+        pingTask?.cancel()
+        pingTask = nil
         task?.cancel(with: .goingAway, reason: nil)
         task = nil
         connectionState = .disconnected
@@ -98,6 +101,37 @@ final class SocketManager: ObservableObject {
                     
                     // Start receive loop
                     self.receiveMessage()
+                    self.startPingTask()
+                }
+            }
+        }
+    }
+    
+    private var pingTask: Task<Void, Never>?
+    private var lastPongDate: Date = Date()
+    
+    private func startPingTask() {
+        lastPongDate = Date()
+        pingTask?.cancel()
+        pingTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                guard let self = self else { return }
+                
+                await MainActor.run {
+                    guard self.connectionState == .connected else { return }
+                    if Date().timeIntervalSince(self.lastPongDate) > 6.0 {
+                        DebugLogger.shared.log("⚠️ Ping timeout. Forcing disconnect.")
+                        self.connectionState = .disconnected
+                        self.task?.cancel()
+                        self.pingTask?.cancel()
+                    } else {
+                        self.task?.sendPing { error in
+                            if error == nil {
+                                self.lastPongDate = Date()
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -134,13 +168,40 @@ final class SocketManager: ObservableObject {
         }
     }
 
+    @Published var isAuthRequested: Bool = false
+    @Published var authRequestApp: String? = nil
+    @Published var authRequestType: String = ""
+    @Published var viewfinderImage: UIImage? = nil
+
     private func handleJSON(_ text: String) {
-        guard let data = text.data(using: .utf8) else { return }
+        guard let decryptedText = CryptoService.shared.decrypt(text),
+              let data = decryptedText.data(using: .utf8) else { return }
+        
+        if let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let action = dict["action"] as? String {
+            
+            if action == "request_auth" {
+                let app = dict["app"] as? String
+                let type = dict["type"] as? String ?? "secure_screen"
+                self.authRequestApp = app
+                self.authRequestType = type
+                self.isAuthRequested = true
+                return
+            } else if action == "viewfinder_frame" {
+                if let b64 = dict["data"] as? String,
+                   let imgData = Data(base64Encoded: b64),
+                   let uiImage = UIImage(data: imgData) {
+                    self.viewfinderImage = uiImage
+                }
+                return
+            }
+        }
+        
         do {
             let model = try decoder.decode(TelemetryModel.self, from: data)
             telemetry = model
         } catch {
-            DebugLogger.shared.log("❌ JSON decode error: \(error.localizedDescription)")
+            // Ignore non-telemetry messages silently
         }
     }
 
@@ -149,8 +210,9 @@ final class SocketManager: ObservableObject {
     /// Send a dictionary payload to the Windows daemon.
     func send(payload: [String: Any]) {
         guard let data = try? JSONSerialization.data(withJSONObject: payload),
-              let str = String(data: data, encoding: .utf8) else { return }
-        task?.send(.string(str)) { error in
+              let str = String(data: data, encoding: .utf8),
+              let encryptedStr = CryptoService.shared.encrypt(str) else { return }
+        task?.send(.string(encryptedStr)) { error in
             if let error = error {
                 Task { @MainActor in
                     DebugLogger.shared.log("❌ Send error: \(error.localizedDescription)")

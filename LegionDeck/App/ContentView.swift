@@ -44,6 +44,9 @@ struct ContentView: View {
             if debugEnabled {
                 DebugOverlayView()
             }
+            
+            // Full-screen Auth Prompt (pops up automatically)
+            AuthOverlayView(socket: socket)
         }
         .preferredColorScheme(.dark)
         .onChange(of: scenePhase) { _, phase in
@@ -68,7 +71,7 @@ struct ContentView: View {
         .onReceive(socket.$telemetry) { telemetry in
             // Update Live Activity on each new frame
             if socket.connectionState == .connected {
-                LiveActivityManager.shared.updateActivity(telemetry: telemetry)
+                LiveActivityManager.shared.updateActivity(telemetry: telemetry, isAuthRequested: socket.isAuthRequested)
                 WatchSessionManager.shared.update(telemetry: telemetry)
                 if let clip = telemetry.clipboard {
                     ClipboardSync.shared.receive(text: clip)
@@ -80,12 +83,18 @@ struct ContentView: View {
             case .connected:
                 LiveActivityManager.shared.startActivity(
                     pcName: "Legion PC",
-                    telemetry: socket.telemetry
+                    telemetry: socket.telemetry,
+                    isAuthRequested: socket.isAuthRequested
                 )
             case .disconnected:
                 LiveActivityManager.shared.endActivity()
             case .connecting:
                 break
+            }
+        }
+        .onReceive(socket.$isAuthRequested) { isRequested in
+            if socket.connectionState == .connected {
+                LiveActivityManager.shared.updateActivity(telemetry: socket.telemetry, isAuthRequested: isRequested)
             }
         }
     }

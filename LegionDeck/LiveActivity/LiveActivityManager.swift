@@ -12,7 +12,7 @@ final class LiveActivityManager {
 
     private init() {}
 
-    func startActivity(pcName: String, telemetry: TelemetryModel) {
+    func startActivity(pcName: String, telemetry: TelemetryModel, isAuthRequested: Bool = false) {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else {
             DebugLogger.shared.log("⚠️ Live Activities not available on this device/config.")
             return
@@ -20,7 +20,7 @@ final class LiveActivityManager {
         guard activity == nil else { return }
         
         let attributes = LegionActivityAttributes(pcName: pcName)
-        let state = contentState(from: telemetry)
+        let state = contentState(from: telemetry, isAuthRequested: isAuthRequested)
 
         Task {
             // 1. Clean up any lingering activities first
@@ -30,7 +30,7 @@ final class LiveActivityManager {
             
             // 2. Create the new activity sequentially
             do {
-                let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(30))
+                let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(5))
                 self.activity = try Activity.request(
                     attributes: attributes,
                     content: content,
@@ -43,10 +43,10 @@ final class LiveActivityManager {
         }
     }
 
-    func updateActivity(telemetry: TelemetryModel) {
+    func updateActivity(telemetry: TelemetryModel, isAuthRequested: Bool = false) {
         guard let activity else { return }
-        let state = contentState(from: telemetry)
-        let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(30))
+        let state = contentState(from: telemetry, isAuthRequested: isAuthRequested)
+        let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(5))
         Task {
             await activity.update(content)
         }
@@ -55,7 +55,7 @@ final class LiveActivityManager {
     func endActivity() {
         guard let activity else { return }
         Task {
-            let finalState = contentState(from: .placeholder)
+            let finalState = contentState(from: .placeholder, isAuthRequested: false)
             let content = ActivityContent(state: finalState, staleDate: nil)
             await activity.end(content, dismissalPolicy: .after(Date().addingTimeInterval(60)))
             DebugLogger.shared.log("🏝 Live Activity ended.")
@@ -63,7 +63,7 @@ final class LiveActivityManager {
         self.activity = nil
     }
 
-    private func contentState(from t: TelemetryModel) -> LegionActivityAttributes.ContentState {
+    private func contentState(from t: TelemetryModel, isAuthRequested: Bool) -> LegionActivityAttributes.ContentState {
         return LegionActivityAttributes.ContentState(
             cpuUsage: t.cpuUsage,
             gpuUsage: t.gpuUsage,
@@ -73,7 +73,8 @@ final class LiveActivityManager {
             tempGpu: t.tempGpu,
             mediaTitle: t.mediaTitle,
             mediaArtist: t.mediaArtist,
-            volume: t.volume
+            volume: t.volume,
+            isAuthRequested: isAuthRequested
         )
     }
 }

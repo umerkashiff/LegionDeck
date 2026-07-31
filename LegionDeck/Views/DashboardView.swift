@@ -197,21 +197,38 @@ struct DashboardView: View {
 
     // MARK: - Controls
     private var controlsSection: some View {
-        Button {
-            feedback.impactOccurred(intensity: 0.7)
-            showLockAlert = true
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "lock.fill")
-                Text("Lock PC")
-                    .fontWeight(.medium)
+        HStack(spacing: 12) {
+            Button {
+                feedback.impactOccurred(intensity: 0.7)
+                socket.send(action: "secure_lock_pc")
+                DebugLogger.shared.log("🔒 Secure Lock PC sent.")
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "lock.fill")
+                    Text("Secure Lock")
+                        .fontWeight(.medium)
+                }
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(Color.red.opacity(0.2), in: RoundedRectangle(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.red.opacity(0.4), lineWidth: 1))
             }
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(Color(white: 0.1), in: RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color(white: 0.2), lineWidth: 1))
+            .buttonStyle(.plain)
+            
+            NavigationLink(destination: ViewFinderView(socket: socket)) {
+                HStack(spacing: 8) {
+                    Image(systemName: "camera.viewfinder")
+                    Text("View Finder")
+                        .fontWeight(.medium)
+                }
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(Color(white: 0.1), in: RoundedRectangle(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color(white: 0.2), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
     }
 }

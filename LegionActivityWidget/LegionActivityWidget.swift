@@ -33,42 +33,55 @@ struct LegionActivityWidget: Widget {
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(spacing: 6) {
-                        HStack(spacing: 16) {
-                            TempBadge(label: "CPU", temp: context.state.tempCpu)
-                            TempBadge(label: "GPU", temp: context.state.tempGpu)
-                            Spacer()
-                            VStack(alignment: .trailing, spacing: 2) {
-                                Text(context.attributes.pcName)
-                                    .font(.caption2)
-                                    .foregroundStyle(.white.opacity(0.8))
-                                Text("Dev by Umer Kashif")
-                                    .font(.system(size: 8))
-                                    .foregroundStyle(.white.opacity(0.3))
-                            }
-                        }
-                        
-                        if let title = context.state.mediaTitle, !title.isEmpty {
+                        if context.state.isAuthRequested {
                             HStack {
-                                Image(systemName: "music.note")
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(.gray)
-                                Text("\(title) · \(context.state.mediaArtist ?? "")")
-                                    .font(.system(size: 10, weight: .medium))
-                                    .foregroundStyle(.white)
-                                    .lineLimit(1)
+                                Image(systemName: "lock.shield.fill")
+                                    .foregroundStyle(.yellow)
+                                Text("Face ID Required")
+                                    .font(.subheadline.bold())
+                                    .foregroundStyle(.yellow)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(Color.yellow.opacity(0.15), in: RoundedRectangle(cornerRadius: 8))
+                        } else {
+                            HStack(spacing: 16) {
+                                TempBadge(label: "CPU", temp: context.state.tempCpu)
+                                TempBadge(label: "GPU", temp: context.state.tempGpu)
                                 Spacer()
-                                if let vol = context.state.volume {
-                                    Image(systemName: "speaker.wave.2.fill")
-                                        .font(.system(size: 10))
-                                        .foregroundStyle(.gray)
-                                    Text("\(vol)%")
-                                        .font(.system(size: 10, weight: .bold).monospacedDigit())
-                                        .foregroundStyle(.white)
+                                VStack(alignment: .trailing, spacing: 2) {
+                                    Text(context.attributes.pcName)
+                                        .font(.caption2)
+                                        .foregroundStyle(.white.opacity(0.8))
+                                    Text("Dev by Umer Kashif")
+                                        .font(.system(size: 8))
+                                        .foregroundStyle(.white.opacity(0.3))
                                 }
                             }
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 4)
-                            .background(Color(white: 0.15), in: RoundedRectangle(cornerRadius: 6))
+                            
+                            if let title = context.state.mediaTitle, !title.isEmpty {
+                                HStack {
+                                    Image(systemName: "music.note")
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.gray)
+                                    Text("\(title) · \(context.state.mediaArtist ?? "")")
+                                        .font(.system(size: 10, weight: .medium))
+                                        .foregroundStyle(.white)
+                                        .lineLimit(1)
+                                    Spacer()
+                                    if let vol = context.state.volume {
+                                        Image(systemName: "speaker.wave.2.fill")
+                                            .font(.system(size: 10))
+                                            .foregroundStyle(.gray)
+                                        Text("\(vol)%")
+                                            .font(.system(size: 10, weight: .bold).monospacedDigit())
+                                            .foregroundStyle(.white)
+                                    }
+                                }
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 4)
+                                .background(Color(white: 0.15), in: RoundedRectangle(cornerRadius: 6))
+                            }
                         }
                     }
                     .padding(.horizontal, 12)
@@ -89,31 +102,42 @@ struct LegionActivityWidget: Widget {
                 .padding(.leading, 4)
 
             } compactTrailing: {
-                // ── Compact Right: GPU% ────────────────────────────────────
-                HStack(spacing: 3) {
-                    Image(systemName: "memorychip")
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundStyle(.gray)
-                    Text("\(context.state.gpuUsage)%")
-                        .font(.system(size: 12, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(metricColor(context.state.gpuUsage))
-                        .contentTransition(.numericText())
+                // ── Compact Right: GPU% or Lock ────────────────────────────
+                if context.state.isAuthRequested {
+                    Image(systemName: "lock.fill")
+                        .foregroundStyle(.yellow)
+                        .padding(.trailing, 4)
+                } else {
+                    HStack(spacing: 3) {
+                        Image(systemName: "memorychip")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundStyle(.gray)
+                        Text("\(context.state.gpuUsage)%")
+                            .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                            .foregroundStyle(metricColor(context.state.gpuUsage))
+                            .contentTransition(.numericText())
+                    }
+                    .padding(.trailing, 4)
                 }
-                .padding(.trailing, 4)
 
             } minimal: {
-                // ── Minimal (when two Live Activities compete) ─────────────
-                let peak = max(context.state.cpuUsage, context.state.gpuUsage)
-                ZStack {
-                    Circle()
-                        .trim(from: 0, to: CGFloat(peak) / 100.0)
-                        .stroke(metricColor(peak), style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-                    Text("\(peak)")
-                        .font(.system(size: 9, weight: .bold).monospacedDigit())
-                        .foregroundStyle(.white)
+                // ── Minimal ─────────────
+                if context.state.isAuthRequested {
+                    Image(systemName: "lock.fill")
+                        .foregroundStyle(.yellow)
+                } else {
+                    let peak = max(context.state.cpuUsage, context.state.gpuUsage)
+                    ZStack {
+                        Circle()
+                            .trim(from: 0, to: CGFloat(peak) / 100.0)
+                            .stroke(metricColor(peak), style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                            .rotationEffect(.degrees(-90))
+                        Text("\(peak)")
+                            .font(.system(size: 9, weight: .bold).monospacedDigit())
+                            .foregroundStyle(.white)
+                    }
+                    .frame(width: 22, height: 22)
                 }
-                .frame(width: 22, height: 22)
             }
         }
     }
@@ -143,17 +167,29 @@ private struct LockScreenBannerView: View {
                 }
             }
 
-            HStack(spacing: 12) {
-                MetricBar(label: "CPU", value: state.cpuUsage)
-                MetricBar(label: "GPU", value: state.gpuUsage)
-                MetricBar(label: "RAM", value: state.ramUsage)
-                MetricBar(label: "VRAM", value: state.vramUsage)
-            }
+            if state.isAuthRequested {
+                HStack {
+                    Image(systemName: "lock.shield.fill")
+                    Text("Face ID Required to Unlock")
+                        .font(.headline)
+                }
+                .foregroundStyle(.yellow)
+                .frame(maxWidth: .infinity)
+                .padding(8)
+                .background(Color.yellow.opacity(0.2), in: RoundedRectangle(cornerRadius: 8))
+            } else {
+                HStack(spacing: 12) {
+                    MetricBar(label: "CPU", value: state.cpuUsage)
+                    MetricBar(label: "GPU", value: state.gpuUsage)
+                    MetricBar(label: "RAM", value: state.ramUsage)
+                    MetricBar(label: "VRAM", value: state.vramUsage)
+                }
 
-            HStack(spacing: 20) {
-                TempBadge(label: "CPU", temp: state.tempCpu)
-                TempBadge(label: "GPU", temp: state.tempGpu)
-                Spacer()
+                HStack(spacing: 20) {
+                    TempBadge(label: "CPU", temp: state.tempCpu)
+                    TempBadge(label: "GPU", temp: state.tempGpu)
+                    Spacer()
+                }
             }
         }
         .padding(12)

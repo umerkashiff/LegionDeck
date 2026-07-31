@@ -10,8 +10,11 @@ struct SettingsView: View {
     @AppStorage("trackpad_sensitivity")   private var trackpadSensitivity: Double = 1.5
     @AppStorage("install_date")        private var installDateRaw = Date().timeIntervalSince1970
 
+    @AppStorage("encryption_key") private var encryptionKey = "LegionDeck_SecretKey_32_Bytes!!!"
+    
     @State private var editableIP = ""
-    @FocusState private var ipFocused: Bool
+    @State private var editableKey = ""
+    @FocusState private var isFocused: Bool
 
     private var daysUntilExpiry: Int {
         let installed = Date(timeIntervalSince1970: installDateRaw)
@@ -33,13 +36,22 @@ struct SettingsView: View {
                         TextField("192.168.x.x", text: $editableIP)
                             .keyboardType(.decimalPad)
                             .autocorrectionDisabled()
-                            .focused($ipFocused)
-                            .onSubmit { applyIP() }
+                            .focused($isFocused)
+                            .onSubmit { applySettings() }
+                            .foregroundStyle(.white)
+                    }
+                    HStack {
+                        Image(systemName: "key.fill")
+                            .foregroundStyle(.gray)
+                            .frame(width: 28)
+                        SecureField("Encryption Key (32-bytes)", text: $editableKey)
+                            .focused($isFocused)
+                            .onSubmit { applySettings() }
                             .foregroundStyle(.white)
                     }
                     HStack(spacing: 12) {
                         Button {
-                            applyIP()
+                            applySettings()
                             socket.connect()
                         } label: {
                             Label("Connect", systemImage: "bolt.fill")
@@ -115,12 +127,16 @@ struct SettingsView: View {
             .scrollContentBackground(.hidden)
         }
         .navigationTitle("Settings")
-        .onAppear { editableIP = ipAddress }
+        .onAppear { 
+            editableIP = ipAddress 
+            editableKey = encryptionKey
+        }
     }
 
-    private func applyIP() {
+    private func applySettings() {
         ipAddress = editableIP.trimmingCharacters(in: .whitespaces)
+        encryptionKey = editableKey
         socket.serverIP = ipAddress
-        ipFocused = false
+        isFocused = false
     }
 }

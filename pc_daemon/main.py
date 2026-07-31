@@ -12,9 +12,55 @@ import logging
 import socket
 import subprocess
 import time
+import os
+import base64
+import io
+import threading
+import tkinter as tk
 
 import psutil
 import pyperclip
+try:
+    import keyboard
+except ImportError:
+    pass
+
+try:
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+except ImportError:
+    pass
+
+try:
+    import mss
+    from PIL import Image
+    MSS_AVAILABLE = True
+except ImportError:
+    MSS_AVAILABLE = False
+
+SECRET_KEY = b"LegionDeck_SecretKey_32_Bytes!!!"
+
+def encrypt_payload(data: str) -> str:
+    try:
+        aesgcm = AESGCM(SECRET_KEY)
+        nonce = os.urandom(12)
+        ct = aesgcm.encrypt(nonce, data.encode('utf-8'), None)
+        return base64.b64encode(nonce + ct).decode('utf-8')
+    except Exception as e:
+        log.error(f"Encryption failed: {e}")
+        return ""
+
+def decrypt_payload(b64_str: str) -> str:
+    try:
+        raw = base64.b64decode(b64_str)
+        if len(raw) < 28: return "" 
+        nonce = raw[:12]
+        ct = raw[12:]
+        aesgcm = AESGCM(SECRET_KEY)
+        pt = aesgcm.decrypt(nonce, ct, None)
+        return pt.decode('utf-8')
+    except Exception:
+        return ""
+
 try:
     import pyautogui
     pyautogui.FAILSAFE = False
@@ -202,6 +248,113 @@ def _read_volume() -> int:
         return 0
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# Advanced Features (View Finder, App Lock, Secure Screen)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+LOCKED_APPS = ["Discord.exe", "Spotify.exe"]
+_authorized_apps = set()
+_auth_pending_apps = set()
+_viewfinder_active = False
+_secure_screen_root = None
+_secure_screen_thread_ref = None
+
+def _broadcast_event(payload: dict):
+    if _clients:
+        msg = json.dumps(payload)
+        enc = encrypt_payload(msg)
+        if not enc: return
+        for c in _clients:
+            asyncio.create_task(c.send(enc))
+
+async def _app_lock_engine():
+    """Suspends locked apps until FaceID auth is received."""
+    while True:
+        try:
+            for proc in psutil.process_iter(['name', 'pid']):
+                name = proc.info['name']
+                if name and name in LOCKED_APPS:
+                    if name not in _authorized_apps and name not in _auth_pending_apps:
+                        proc.suspend()
+                        _auth_pending_apps.add(name)
+                        log.info(f"Locked {name}. Requesting FaceID.")
+                        _broadcast_event({"action": "request_auth", "app": name, "type": "app_lock"})
+        except Exception:
+            pass
+        await asyncio.sleep(1.0)
+
+async def _viewfinder_loop():
+    """Streams the primary monitor as JPEG frames over WebSocket."""
+    if not MSS_AVAILABLE: return
+    with mss.mss() as sct:
+        monitor = sct.monitors[1]
+        while True:
+            if _viewfinder_active and _clients:
+                try:
+                    sct_img = sct.grab(monitor)
+                    img = Image.frombytes("RGB", sct_img.size, sct_img.bgra, "raw", "BGRX")
+                    img.thumbnail((1280, 720))
+                    buf = io.BytesIO()
+                    img.save(buf, format="JPEG", quality=40)
+                    b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+                    
+                    _broadcast_event({"action": "viewfinder_frame", "data": b64})
+                except Exception as e:
+                    log.error(f"Viewfinder error: {e}")
+                await asyncio.sleep(1/15)
+            else:
+                await asyncio.sleep(1.0)
+
+def _secure_screen_gui():
+    global _secure_screen_root
+    _secure_screen_root = tk.Tk()
+    _secure_screen_root.attributes("-fullscreen", True, "-topmost", True, "-alpha", 1.0)
+    _secure_screen_root.configure(bg="black")
+    _secure_screen_root.config(cursor="none")
+    
+    lbl = tk.Label(_secure_screen_root, text="🔒 LEGION SECURE SCREEN", fg="cyan", bg="black", font=("Arial", 32, "bold"))
+    lbl.pack(expand=True)
+    lbl2 = tk.Label(_secure_screen_root, text="Authenticate on iPhone to unlock.\nBypass: Ctrl+Shift+Alt+U", fg="gray", bg="black", font=("Arial", 16))
+    lbl2.pack(pady=20)
+    
+    def check_close():
+        if getattr(_secure_screen_root, "should_close", False):
+            _secure_screen_root.destroy()
+        else:
+            _secure_screen_root.after(100, check_close)
+            
+    _secure_screen_root.after(100, check_close)
+    _secure_screen_root.mainloop()
+
+def _spawn_secure_screen():
+    global _secure_screen_thread_ref
+    if _secure_screen_thread_ref and _secure_screen_thread_ref.is_alive():
+        return
+    log.info("Starting Legion Secure Screen...")
+    _broadcast_event({"action": "request_auth", "type": "secure_screen"})
+    _secure_screen_thread_ref = threading.Thread(target=_secure_screen_gui, daemon=True)
+    _secure_screen_thread_ref.start()
+
+def _kill_secure_screen():
+    if _secure_screen_root:
+        _secure_screen_root.should_close = True
+
+def _bypass_hook():
+    log.info("Bypass hook triggered!")
+    _kill_secure_screen()
+    for app in list(_auth_pending_apps):
+        _auth_pending_apps.discard(app)
+        _authorized_apps.add(app)
+        for proc in psutil.process_iter(['name', 'pid']):
+            if proc.info['name'] == app:
+                try: proc.resume()
+                except: pass
+
+try:
+    keyboard.add_hotkey('ctrl+shift+alt+u', _bypass_hook)
+except Exception:
+    pass
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # WebSocket Handlers
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -224,6 +377,8 @@ async def _client_handler(ws: WebSocketServerProtocol):
 
 async def _handle_command(raw: str):
     """Process a JSON command string from an iOS client."""
+    raw = decrypt_payload(raw)
+    if not raw: return
     try:
         msg = json.loads(raw)
     except json.JSONDecodeError:
@@ -232,7 +387,10 @@ async def _handle_command(raw: str):
 
     action = msg.get("action", "")
 
-    if action == "lock_pc":
+    if action == "ping":
+        return
+
+    elif action == "lock_pc":
         log.info("Lock PC requested by iOS.")
         subprocess.Popen(["rundll32.exe", "user32.dll,LockWorkStation"])
 
@@ -347,6 +505,33 @@ async def _handle_command(raw: str):
             except Exception as e:
                 log.error(f"set_volume failed: {e}")
 
+    elif action == "auth_success":
+        app_name = msg.get("app")
+        auth_type = msg.get("type")
+        if auth_type == "app_lock" and app_name:
+            _auth_pending_apps.discard(app_name)
+            _authorized_apps.add(app_name)
+            for proc in psutil.process_iter(['name', 'pid']):
+                if proc.info['name'] == app_name:
+                    try: proc.resume()
+                    except: pass
+            log.info(f"{app_name} unlocked.")
+        elif auth_type == "secure_screen":
+            _kill_secure_screen()
+            log.info("Secure screen unlocked via FaceID.")
+
+    elif action == "start_viewfinder":
+        global _viewfinder_active
+        _viewfinder_active = True
+        log.info("Viewfinder started.")
+        
+    elif action == "stop_viewfinder":
+        _viewfinder_active = False
+        log.info("Viewfinder stopped.")
+
+    elif action == "secure_lock_pc":
+        _spawn_secure_screen()
+
     else:
         log.warning(f"Unknown action received: '{action}'")
 
@@ -399,10 +584,12 @@ async def _broadcast_loop():
 
             if _clients:
                 message = json.dumps(payload)
-                await asyncio.gather(
-                    *[c.send(message) for c in list(_clients)],
-                    return_exceptions=True,
-                )
+                enc = encrypt_payload(message)
+                if enc:
+                    await asyncio.gather(
+                        *[c.send(enc) for c in list(_clients)],
+                        return_exceptions=True,
+                    )
 
         except Exception as e:
             log.error(f"Broadcast error: {e}")
@@ -439,10 +626,14 @@ async def _main():
         _client_handler,
         "0.0.0.0",
         8765,
-        ping_interval=None,
-        ping_timeout=None,
+        ping_interval=3,
+        ping_timeout=5,
     ):
-        await _broadcast_loop()
+        await asyncio.gather(
+            _broadcast_loop(),
+            _app_lock_engine(),
+            _viewfinder_loop(),
+        )
 
 
 if __name__ == "__main__":
