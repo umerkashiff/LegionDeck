@@ -87,15 +87,39 @@ struct TrackpadGestureView: UIViewRepresentable {
             return false
         }
         
+        private var isEdgeScrolling = false
+        
         @objc func handleMove(_ sender: UIPanGestureRecognizer) {
+            guard let view = sender.view else { return }
+            
+            if sender.state == .began {
+                let loc = sender.location(in: view)
+                isEdgeScrolling = loc.x > view.bounds.width - 60
+            }
+            
             let now = Date()
-            if now.timeIntervalSince(lastMoveTime) > 0.016 { // ~60 FPS
-                let translation = sender.translation(in: sender.view)
-                if translation != .zero {
-                    parent.onMove(translation)
-                    sender.setTranslation(.zero, in: sender.view)
-                    lastMoveTime = now
+            let translation = sender.translation(in: view)
+            
+            if isEdgeScrolling {
+                if now.timeIntervalSince(lastScrollTime) > 0.032 {
+                    if translation != .zero {
+                        parent.onScroll(CGPoint(x: 0, y: translation.y))
+                        sender.setTranslation(.zero, in: view)
+                        lastScrollTime = now
+                    }
                 }
+            } else {
+                if now.timeIntervalSince(lastMoveTime) > 0.016 { // ~60 FPS
+                    if translation != .zero {
+                        parent.onMove(translation)
+                        sender.setTranslation(.zero, in: view)
+                        lastMoveTime = now
+                    }
+                }
+            }
+            
+            if sender.state == .ended || sender.state == .cancelled {
+                isEdgeScrolling = false
             }
         }
         

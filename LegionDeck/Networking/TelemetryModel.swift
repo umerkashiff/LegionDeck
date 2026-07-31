@@ -12,6 +12,11 @@ struct TelemetryModel: Codable, Equatable {
     var tempIgpu:  Int?      // AMD Radeon 860M iGPU temp (optional)
     var gpuLabel:  String?   // e.g. "NVIDIA GeForce RTX 5070 Laptop GPU"
     var clipboard: String?
+    
+    var mediaTitle: String?
+    var mediaArtist: String?
+    var volume: Int?
+    
     var timestamp: Int
 
     enum CodingKeys: String, CodingKey {
@@ -24,6 +29,9 @@ struct TelemetryModel: Codable, Equatable {
         case tempIgpu  = "temp_igpu"
         case gpuLabel  = "gpu_label"
         case clipboard
+        case mediaTitle = "media_title"
+        case mediaArtist = "media_artist"
+        case volume
         case timestamp
     }
 
@@ -33,7 +41,7 @@ struct TelemetryModel: Codable, Equatable {
             ramUsage: 0, vramUsage: 0,
             tempCpu: 0, tempGpu: 0,
             tempIgpu: nil, gpuLabel: nil,
-            clipboard: nil, timestamp: 0
+            clipboard: nil, mediaTitle: nil, mediaArtist: nil, volume: nil, timestamp: 0
         )
     }
 }

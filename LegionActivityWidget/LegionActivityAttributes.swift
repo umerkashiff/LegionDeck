@@ -12,6 +12,10 @@ struct LegionActivityAttributes: ActivityAttributes {
         var vramUsage: Int
         var tempCpu:   Int
         var tempGpu:   Int
+        
+        var mediaTitle: String?
+        var mediaArtist: String?
+        var volume: Int?
     }
 
     /// Static context: PC name, set once when activity starts.

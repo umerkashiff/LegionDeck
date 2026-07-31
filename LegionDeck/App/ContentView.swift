@@ -53,6 +53,9 @@ struct ContentView: View {
                 socket.connect()
                 ClipboardSync.shared.start(socketManager: socket)
                 WatchSessionManager.shared.startSending()
+                WatchSessionManager.shared.onCommandReceived = { [weak socket] payload in
+                    socket?.send(payload: payload)
+                }
             case .background:
                 // BackgroundEngine keeps process alive — do NOT disconnect here
                 DebugLogger.shared.log("📱 App moved to background — keeping socket alive.")

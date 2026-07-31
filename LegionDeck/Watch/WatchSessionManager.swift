@@ -50,7 +50,9 @@ final class WatchSessionManager: NSObject, ObservableObject {
         }
     }
 
-    private func sendContext(_ t: TelemetryModel) {
+    var onCommandReceived: (([String: Any]) -> Void)?
+
+    func sendContext(_ t: TelemetryModel) {
         let dict: [String: Any] = [
             "cpu_usage":  t.cpuUsage,
             "gpu_usage":  t.gpuUsage,
@@ -59,6 +61,9 @@ final class WatchSessionManager: NSObject, ObservableObject {
             "temp_cpu":   t.tempCpu,
             "temp_gpu":   t.tempGpu,
             "gpu_label":  t.gpuLabel ?? "N/A",
+            "media_title": t.mediaTitle ?? "",
+            "media_artist": t.mediaArtist ?? "",
+            "volume": t.volume ?? 50,
             "timestamp":  t.timestamp,
         ]
         do {
@@ -71,6 +76,13 @@ final class WatchSessionManager: NSObject, ObservableObject {
 
 // MARK: - WCSessionDelegate
 extension WatchSessionManager: WCSessionDelegate {
+
+    nonisolated func session(_ session: WCSession, didReceiveMessage message: [String : Any]) {
+        Task { @MainActor in
+            self.onCommandReceived?(message)
+            DebugLogger.shared.log("⌚ WCSession received message: \(message)")
+        }
+    }
 
     nonisolated func session(
         _ session: WCSession,

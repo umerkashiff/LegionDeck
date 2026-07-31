@@ -64,13 +64,16 @@ final class LiveActivityManager {
     }
 
     private func contentState(from t: TelemetryModel) -> LegionActivityAttributes.ContentState {
-        LegionActivityAttributes.ContentState(
-            cpuUsage:  t.cpuUsage,
-            gpuUsage:  t.gpuUsage,
-            ramUsage:  t.ramUsage,
+        return LegionActivityAttributes.ContentState(
+            cpuUsage: t.cpuUsage,
+            gpuUsage: t.gpuUsage,
+            ramUsage: t.ramUsage,
             vramUsage: t.vramUsage,
-            tempCpu:   t.tempCpu,
-            tempGpu:   t.tempGpu
+            tempCpu: t.tempCpu,
+            tempGpu: t.tempGpu,
+            mediaTitle: t.mediaTitle,
+            mediaArtist: t.mediaArtist,
+            volume: t.volume
         )
     }
 }

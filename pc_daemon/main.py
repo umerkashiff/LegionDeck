@@ -22,6 +22,21 @@ try:
     PYAUTOGUI_AVAILABLE = True
 except ImportError:
     PYAUTOGUI_AVAILABLE = False
+
+try:
+    from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+    from ctypes import cast, POINTER
+    from comtypes import CLSCTX_ALL
+    PYCAW_AVAILABLE = True
+except ImportError:
+    PYCAW_AVAILABLE = False
+
+try:
+    from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager
+    WINSDK_AVAILABLE = True
+except ImportError:
+    WINSDK_AVAILABLE = False
+
 import websockets
 from websockets.server import WebSocketServerProtocol
 
@@ -159,6 +174,32 @@ def _read_clipboard() -> str:
     except Exception:
         return ""
 
+async def _read_media() -> dict:
+    out = {"media_title": "", "media_artist": ""}
+    if not WINSDK_AVAILABLE:
+        return out
+    try:
+        manager = await GlobalSystemMediaTransportControlsSessionManager.request_async()
+        session = manager.get_current_session()
+        if session:
+            info = await session.try_get_media_properties_async()
+            out["media_title"] = info.title or ""
+            out["media_artist"] = info.artist or ""
+    except Exception as e:
+        log.debug(f"Media read error: {e}")
+    return out
+
+def _read_volume() -> int:
+    if not PYCAW_AVAILABLE: return 0
+    try:
+        devices = AudioUtilities.GetSpeakers()
+        interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+        volume = cast(interface, POINTER(IAudioEndpointVolume))
+        scalar = volume.GetMasterVolumeLevelScalar()
+        return int(round(scalar * 100))
+    except Exception as e:
+        log.debug(f"Volume read error: {e}")
+        return 0
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # WebSocket Handlers
@@ -277,6 +318,35 @@ async def _handle_command(raw: str):
         except Exception as e:
             log.error(f"Failed to launch {app}: {e}")
 
+    elif action == "media_playpause":
+        if PYAUTOGUI_AVAILABLE:
+            try: pyautogui.press('playpause')
+            except Exception: pass
+
+    elif action == "media_next":
+        if PYAUTOGUI_AVAILABLE:
+            try: pyautogui.press('nexttrack')
+            except Exception: pass
+
+    elif action == "media_prev":
+        if PYAUTOGUI_AVAILABLE:
+            try: pyautogui.press('prevtrack')
+            except Exception: pass
+
+    elif action == "set_volume":
+        if PYCAW_AVAILABLE:
+            try:
+                level = float(msg.get("level", 50))
+                level = max(0.0, min(100.0, level))
+                scalar = level / 100.0
+                devices = AudioUtilities.GetSpeakers()
+                interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+                volume = cast(interface, POINTER(IAudioEndpointVolume))
+                volume.SetMasterVolumeLevelScalar(scalar, None)
+                log.info(f"Volume set to {int(level)}%")
+            except Exception as e:
+                log.error(f"set_volume failed: {e}")
+
     else:
         log.warning(f"Unknown action received: '{action}'")
 
@@ -300,6 +370,8 @@ async def _broadcast_loop():
             gpu_data  = _read_gpu()
             lhm_data  = _read_lhm_temps()
             clipboard = _read_clipboard()
+            media     = await _read_media()
+            volume    = _read_volume()
 
             if clipboard != last_clip:
                 if clipboard == "":
@@ -310,16 +382,19 @@ async def _broadcast_loop():
                 last_clip = clipboard
 
             payload = {
-                "cpu_usage":  sys_data["cpu_usage"],
-                "gpu_usage":  gpu_data["gpu_usage"],
-                "ram_usage":  sys_data["ram_usage"],
-                "vram_usage": gpu_data["vram_usage"],
-                "temp_cpu":   lhm_data["temp_cpu"],
-                "temp_gpu":   gpu_data["temp_gpu"],
-                "temp_igpu":  lhm_data["temp_igpu"],
-                "gpu_label":  gpu_data["gpu_label"],
-                "clipboard":  clipboard,
-                "timestamp":  int(time.time()),
+                "cpu_usage":    sys_data["cpu_usage"],
+                "gpu_usage":    gpu_data["gpu_usage"],
+                "ram_usage":    sys_data["ram_usage"],
+                "vram_usage":   gpu_data["vram_usage"],
+                "temp_cpu":     lhm_data["temp_cpu"],
+                "temp_gpu":     gpu_data["temp_gpu"],
+                "temp_igpu":    lhm_data["temp_igpu"],
+                "gpu_label":    gpu_data["gpu_label"],
+                "clipboard":    clipboard,
+                "media_title":  media["media_title"],
+                "media_artist": media["media_artist"],
+                "volume":       volume,
+                "timestamp":    int(time.time()),
             }
 
             if _clients:

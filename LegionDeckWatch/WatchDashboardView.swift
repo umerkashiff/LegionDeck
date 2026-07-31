@@ -10,6 +10,9 @@ struct WatchDashboardView: View {
         WatchTelemetry(from: session.telemetry)
     }
 
+    @State private var localVolume: Double = 50.0
+    @State private var isSettingVolume = false
+
     var body: some View {
         ScrollView {
             VStack(spacing: 10) {
@@ -23,6 +26,35 @@ struct WatchDashboardView: View {
                         .foregroundStyle(.cyan)
                         .tracking(1.5)
                     Spacer()
+                }
+
+                // Media Controls
+                if !t.mediaTitle.isEmpty {
+                    VStack(spacing: 6) {
+                        Text(t.mediaTitle)
+                            .font(.system(size: 12, weight: .bold))
+                            .lineLimit(1)
+                        
+                        HStack(spacing: 16) {
+                            Button {
+                                session.sendCommand(["action": "media_prev"])
+                            } label: { Image(systemName: "backward.fill") }
+                            .buttonStyle(.plain)
+                            
+                            Button {
+                                session.sendCommand(["action": "media_playpause"])
+                            } label: { Image(systemName: "playpause.fill").font(.title3) }
+                            .buttonStyle(.plain)
+                            
+                            Button {
+                                session.sendCommand(["action": "media_next"])
+                            } label: { Image(systemName: "forward.fill") }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity)
+                    .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
                 }
 
                 // CPU / GPU row
@@ -42,15 +74,45 @@ struct WatchDashboardView: View {
                 }
                 .padding(.top, 4)
 
+                // Volume Control
+                HStack {
+                    Image(systemName: "speaker.wave.2.fill")
+                        .foregroundStyle(.gray)
+                    Text("Volume \(Int(localVolume))%")
+                        .font(.system(size: 11, weight: .semibold))
+                    Spacer()
+                }
+                .padding(.top, 8)
+
                 if !session.telemetry.isEmpty {
                     Text("Updated \(t.ageString)")
                         .font(.system(size: 9))
                         .foregroundStyle(.gray)
+                        .padding(.top, 4)
                 }
             }
             .padding(.horizontal, 6)
         }
         .navigationTitle("")
+        .focusable()
+        .digitalCrownRotation(
+            $localVolume,
+            from: 0,
+            through: 100,
+            by: 5,
+            sensitivity: .medium,
+            isContinuous: false,
+            isHapticFeedbackEnabled: true
+        )
+        .onChange(of: localVolume) { newValue in
+            session.sendCommand(["action": "set_volume", "level": newValue])
+        }
+        .onReceive(session.$telemetry) { _ in
+            // Don't overwrite if we are actively turning the crown (we can assume ageString prevents jitter)
+            if Int(localVolume) != t.volume {
+                localVolume = Double(t.volume)
+            }
+        }
     }
 }
 
@@ -117,6 +179,9 @@ private struct WatchTelemetry {
     var vramUsage: Int = 0
     var tempCpu:   Int = 0
     var tempGpu:   Int = 0
+    var volume:    Int = 50
+    var mediaTitle: String = ""
+    var mediaArtist: String = ""
     var lastUpdate: TimeInterval = 0
 
     var ageString: String {
@@ -132,6 +197,9 @@ private struct WatchTelemetry {
         vramUsage = dict["vram_usage"] as? Int ?? 0
         tempCpu   = dict["temp_cpu"]   as? Int ?? 0
         tempGpu   = dict["temp_gpu"]   as? Int ?? 0
+        volume    = dict["volume"]     as? Int ?? 50
+        mediaTitle = dict["media_title"] as? String ?? ""
+        mediaArtist = dict["media_artist"] as? String ?? ""
         lastUpdate = dict["last_update"] as? TimeInterval ?? 0
     }
 }

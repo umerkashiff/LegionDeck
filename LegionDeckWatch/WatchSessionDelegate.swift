@@ -43,6 +43,15 @@ class WatchSessionDelegate: NSObject, WCSessionDelegate, ObservableObject {
         defaults.set(dict["gpu_label"]  as? String ?? "", forKey: "gpu_label")
         defaults.set(Date().timeIntervalSince1970,        forKey: "last_update")
     }
+    
+    // MARK: - Send Commands to iOS
+    func sendCommand(_ dict: [String: Any]) {
+        if WCSession.default.isReachable {
+            WCSession.default.sendMessage(dict, replyHandler: nil, errorHandler: { error in
+                print("Failed to send command: \(error.localizedDescription)")
+            })
+        }
+    }
 
     // MARK: - Required WCSession delegates
     func session(_ session: WCSession, activationDidCompleteWith state: WCSessionActivationState, error: Error?) {}

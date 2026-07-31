@@ -103,11 +103,25 @@ struct TrackpadView: View {
         )
         .background(Color(white: 0.05))
         .overlay(
+            HStack {
+                Spacer()
+                
+                // Visual Scroll Zone Indicator
+                Rectangle()
+                    .fill(
+                        LinearGradient(colors: [Color(white: 0.1), .clear], startPoint: .trailing, endPoint: .leading)
+                    )
+                    .frame(width: 40)
+                    .opacity(0.4)
+                    .allowsHitTesting(false)
+            }
+        )
+        .overlay(
             VStack {
                 Image(systemName: "hand.point.up.left")
                     .font(.system(size: 40))
                     .foregroundStyle(Color(white: 0.15))
-                Text("1-Finger: Move / Click\n2-Finger: Scroll / Right-Click\nTouch & Hold: Drag Window")
+                Text("1-Finger: Move / Click\n2-Finger: Scroll / Right-Click\nRight Edge: Scroll")
                     .font(.caption)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Color(white: 0.2))

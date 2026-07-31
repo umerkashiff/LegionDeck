@@ -32,17 +32,43 @@ struct LegionActivityWidget: Widget {
                     .padding(.trailing, 6)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    HStack(spacing: 16) {
-                        TempBadge(label: "CPU", temp: context.state.tempCpu)
-                        TempBadge(label: "GPU", temp: context.state.tempGpu)
-                        Spacer()
-                        VStack(alignment: .trailing, spacing: 2) {
-                            Text(context.attributes.pcName)
-                                .font(.caption2)
-                                .foregroundStyle(.white.opacity(0.8))
-                            Text("Dev by Umer Kashif")
-                                .font(.system(size: 8))
-                                .foregroundStyle(.white.opacity(0.3))
+                    VStack(spacing: 6) {
+                        HStack(spacing: 16) {
+                            TempBadge(label: "CPU", temp: context.state.tempCpu)
+                            TempBadge(label: "GPU", temp: context.state.tempGpu)
+                            Spacer()
+                            VStack(alignment: .trailing, spacing: 2) {
+                                Text(context.attributes.pcName)
+                                    .font(.caption2)
+                                    .foregroundStyle(.white.opacity(0.8))
+                                Text("Dev by Umer Kashif")
+                                    .font(.system(size: 8))
+                                    .foregroundStyle(.white.opacity(0.3))
+                            }
+                        }
+                        
+                        if let title = context.state.mediaTitle, !title.isEmpty {
+                            HStack {
+                                Image(systemName: "music.note")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.gray)
+                                Text("\(title) · \(context.state.mediaArtist ?? "")")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundStyle(.white)
+                                    .lineLimit(1)
+                                Spacer()
+                                if let vol = context.state.volume {
+                                    Image(systemName: "speaker.wave.2.fill")
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.gray)
+                                    Text("\(vol)%")
+                                        .font(.system(size: 10, weight: .bold).monospacedDigit())
+                                        .foregroundStyle(.white)
+                                }
+                            }
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 4)
+                            .background(Color(white: 0.15), in: RoundedRectangle(cornerRadius: 6))
                         }
                     }
                     .padding(.horizontal, 12)
