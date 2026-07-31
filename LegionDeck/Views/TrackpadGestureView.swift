@@ -9,6 +9,8 @@ struct TrackpadGestureView: UIViewRepresentable {
     var onScroll: (CGPoint) -> Void
     var onTapLeft: () -> Void
     var onTapRight: () -> Void
+    var onDragBegin: () -> Void
+    var onDragEnd: () -> Void
     
     func makeUIView(context: Context) -> UIView {
         let view = UIView()
@@ -37,9 +39,19 @@ struct TrackpadGestureView: UIViewRepresentable {
         tapRight.numberOfTouchesRequired = 2
         view.addGestureRecognizer(tapRight)
         
+        // Touch and Hold (Drag & Drop)
+        let longPress = UILongPressGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleLongPress(_:)))
+        longPress.minimumPressDuration = 0.3
+        longPress.delegate = context.coordinator
+        view.addGestureRecognizer(longPress)
+        
+        movePan.delegate = context.coordinator
+        scrollPan.delegate = context.coordinator
+        tapLeft.delegate = context.coordinator
+        tapRight.delegate = context.coordinator
+        
         // Dependency resolution to prevent overlapping gestures
         tapLeft.require(toFail: tapRight)
-        tapLeft.require(toFail: movePan)
         tapLeft.require(toFail: scrollPan)
         tapRight.require(toFail: scrollPan)
         
@@ -53,7 +65,7 @@ struct TrackpadGestureView: UIViewRepresentable {
     }
     
     // MARK: - Coordinator
-    class Coordinator: NSObject {
+    class Coordinator: NSObject, UIGestureRecognizerDelegate {
         var parent: TrackpadGestureView
         
         // Throttle timestamps to prevent flooding the WebSocket
@@ -62,6 +74,17 @@ struct TrackpadGestureView: UIViewRepresentable {
         
         init(_ parent: TrackpadGestureView) {
             self.parent = parent
+        }
+        
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+            // Allow pan and long press to work simultaneously for drag and drop
+            if gestureRecognizer is UIPanGestureRecognizer && otherGestureRecognizer is UILongPressGestureRecognizer {
+                return true
+            }
+            if gestureRecognizer is UILongPressGestureRecognizer && otherGestureRecognizer is UIPanGestureRecognizer {
+                return true
+            }
+            return false
         }
         
         @objc func handleMove(_ sender: UIPanGestureRecognizer) {
@@ -97,6 +120,14 @@ struct TrackpadGestureView: UIViewRepresentable {
         @objc func handleTapRight(_ sender: UITapGestureRecognizer) {
             if sender.state == .ended {
                 parent.onTapRight()
+            }
+        }
+        
+        @objc func handleLongPress(_ sender: UILongPressGestureRecognizer) {
+            if sender.state == .began {
+                parent.onDragBegin()
+            } else if sender.state == .ended || sender.state == .cancelled || sender.state == .failed {
+                parent.onDragEnd()
             }
         }
     }

@@ -221,6 +221,20 @@ async def _handle_command(raw: str):
         except Exception as e:
             log.error(f"mouse_click failed: {e}")
 
+    elif action == "mouse_down":
+        if not PYAUTOGUI_AVAILABLE: return
+        try:
+            pyautogui.mouseDown()
+        except Exception as e:
+            log.error(f"mouse_down failed: {e}")
+
+    elif action == "mouse_up":
+        if not PYAUTOGUI_AVAILABLE: return
+        try:
+            pyautogui.mouseUp()
+        except Exception as e:
+            log.error(f"mouse_up failed: {e}")
+
     elif action == "mouse_scroll":
         if not PYAUTOGUI_AVAILABLE: return
         dy = msg.get("dy", 0)

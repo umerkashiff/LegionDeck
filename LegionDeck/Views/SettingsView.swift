@@ -7,6 +7,7 @@ struct SettingsView: View {
     @AppStorage("pc_ip_address")       private var ipAddress = ""
     @AppStorage("clipboard_sync_enabled") private var clipboardEnabled = true
     @AppStorage("debug_overlay_enabled")  private var debugEnabled = true
+    @AppStorage("trackpad_sensitivity")   private var trackpadSensitivity: Double = 1.5
     @AppStorage("install_date")        private var installDateRaw = Date().timeIntervalSince1970
 
     @State private var editableIP = ""
@@ -87,6 +88,12 @@ struct SettingsView: View {
                         Label("Debug Overlay", systemImage: "terminal")
                     }
                     .tint(.green)
+                    
+                    VStack(alignment: .leading) {
+                        Text("Trackpad Sensitivity: \(trackpadSensitivity, specifier: "%.1f")x")
+                        Slider(value: $trackpadSensitivity, in: 0.5...3.0, step: 0.1)
+                            .tint(.white)
+                    }
                 } header: {
                     Text("Features")
                 }

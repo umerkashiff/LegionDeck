@@ -2,9 +2,7 @@ import SwiftUI
 
 struct TrackpadView: View {
     @ObservedObject var socket: SocketManager
-    
-    // For mouse movement delta
-    @State private var lastLocation: CGPoint? = nil
+    @AppStorage("trackpad_sensitivity") private var trackpadSensitivity: Double = 1.5
     
     // For remote typing
     @State private var textInput: String = ""
@@ -13,56 +11,65 @@ struct TrackpadView: View {
     // Feedback
     let feedback = UIImpactFeedbackGenerator(style: .light)
     
-    // Throttle timestamp
-    @State private var lastSendTime = Date()
-    
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
             
             VStack(spacing: 0) {
-                // Invisible text field for capturing keystrokes
-                TextField("", text: $textInput)
-                    .focused($isKeyboardFocused)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-                    .opacity(0)
-                    .frame(width: 0, height: 0)
-                    .onChange(of: textInput) { _, newValue in
-                        if let lastChar = newValue.last {
-                            socket.send(payload: ["action": "keyboard_type", "text": String(lastChar)])
-                            DebugLogger.shared.log("⌨️ Typed: '\(lastChar)'")
-                        } else if newValue.isEmpty {
-                            // Backspace was pressed (we just reset the string to avoid length buildup)
-                            socket.send(payload: ["action": "keyboard_press", "key": "backspace"])
-                            DebugLogger.shared.log("⌨️ Typed: [Backspace]")
-                        }
-                        // Reset string so we always capture new typing without huge string buildup
-                        if textInput.count > 5 {
-                            textInput = String(textInput.suffix(1))
-                        }
-                    }
                 
                 // Trackpad Surface
                 trackpadSurface
+                
+                // Live Chat / Typing Box (Visible only when keyboard icon is tapped)
+                if isKeyboardFocused {
+                    HStack {
+                        TextField("Type text to send...", text: $textInput)
+                            .focused($isKeyboardFocused)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .background(Color(white: 0.15), in: RoundedRectangle(cornerRadius: 12))
+                            .foregroundStyle(.white)
+                            .onSubmit {
+                                sendText()
+                            }
+                        
+                        Button {
+                            sendText()
+                        } label: {
+                            Image(systemName: "paperplane.fill")
+                                .font(.title3)
+                                .foregroundStyle(.white)
+                                .frame(width: 44, height: 44)
+                                .background(.blue, in: Circle())
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(Color(white: 0.08))
+                }
                 
                 // Bottom App Dock
                 bottomDock
             }
         }
-        .onAppear {
-            textInput = " " // Seed with space so backspace registers
-        }
+    }
+    
+    private func sendText() {
+        guard !textInput.isEmpty else { return }
+        socket.send(payload: ["action": "keyboard_type", "text": textInput])
+        DebugLogger.shared.log("⌨️ Sent: '\(textInput)'")
+        textInput = "" // Clear after sending
     }
     
     private var trackpadSurface: some View {
         TrackpadGestureView(
             onMove: { delta in
-                // Scale movement slightly
-                socket.send(payload: ["action": "mouse_move", "dx": delta.x * 1.5, "dy": delta.y * 1.5])
+                // Scale movement by sensitivity
+                socket.send(payload: ["action": "mouse_move", "dx": delta.x * trackpadSensitivity, "dy": delta.y * trackpadSensitivity])
             },
             onScroll: { delta in
-                // Scroll Y goes opposite to dy
                 socket.send(payload: ["action": "mouse_scroll", "dy": -delta.y])
             },
             onTapLeft: {
@@ -74,6 +81,16 @@ struct TrackpadView: View {
                 feedback.impactOccurred(intensity: 1.0)
                 socket.send(payload: ["action": "mouse_click", "button": "right"])
                 DebugLogger.shared.log("🖱️ Right Click")
+            },
+            onDragBegin: {
+                feedback.impactOccurred(intensity: 0.8)
+                socket.send(payload: ["action": "mouse_down"])
+                DebugLogger.shared.log("👆 Mouse Down (Drag Start)")
+            },
+            onDragEnd: {
+                feedback.impactOccurred(intensity: 0.5)
+                socket.send(payload: ["action": "mouse_up"])
+                DebugLogger.shared.log("👆 Mouse Up (Drag End)")
             }
         )
         .background(Color(white: 0.05))
@@ -82,7 +99,7 @@ struct TrackpadView: View {
                 Image(systemName: "hand.point.up.left")
                     .font(.system(size: 40))
                     .foregroundStyle(Color(white: 0.15))
-                Text("1-Finger: Move / Click\n2-Finger: Scroll / Right-Click")
+                Text("1-Finger: Move / Click\n2-Finger: Scroll / Right-Click\nTouch & Hold: Drag Window")
                     .font(.caption)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Color(white: 0.2))
@@ -101,8 +118,9 @@ struct TrackpadView: View {
             Spacer()
             
             Button {
-                isKeyboardFocused.toggle()
-                if isKeyboardFocused { textInput = " " }
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    isKeyboardFocused.toggle()
+                }
             } label: {
                 Image(systemName: "keyboard")
                     .font(.title3)
