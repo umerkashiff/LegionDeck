@@ -272,8 +272,8 @@ async def _main():
         _client_handler,
         "0.0.0.0",
         8765,
-        ping_interval=20,
-        ping_timeout=30,
+        ping_interval=None,
+        ping_timeout=None,
     ):
         await _broadcast_loop()
 

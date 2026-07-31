@@ -67,8 +67,7 @@ final class SocketManager: ObservableObject {
         connectionState = .connecting
         DebugLogger.shared.log("🔗 Connecting to \(url)…")
 
-        let session = URLSession(configuration: .default)
-        let ws = session.webSocketTask(with: url)
+        let ws = URLSession.shared.webSocketTask(with: url)
         self.task = ws
         ws.resume()
 
@@ -77,27 +76,36 @@ final class SocketManager: ObservableObject {
         DebugLogger.shared.log("✅ Connected to \(serverIP):8765")
 
         // Start receive loop
-        await receiveLoop(ws: ws)
+        receiveMessage()
     }
 
-    private func receiveLoop(ws: URLSessionWebSocketTask) async {
-        while !Task.isCancelled {
-            do {
-                let message = try await ws.receive()
+    private func receiveMessage() {
+        guard let ws = task, connectionState == .connected else { return }
+        
+        ws.receive { [weak self] result in
+            guard let self = self else { return }
+            
+            switch result {
+            case .success(let message):
                 switch message {
                 case .string(let text):
-                    handleJSON(text)
+                    Task { @MainActor in self.handleJSON(text) }
                 case .data(let data):
                     if let text = String(data: data, encoding: .utf8) {
-                        handleJSON(text)
+                        Task { @MainActor in self.handleJSON(text) }
                     }
                 @unknown default:
                     break
                 }
-            } catch {
-                DebugLogger.shared.log("⚡ WebSocket error: \(error.localizedDescription)")
-                connectionState = .disconnected
-                return
+                
+                // Recursively call to receive the next message
+                self.receiveMessage()
+                
+            case .failure(let error):
+                Task { @MainActor in
+                    DebugLogger.shared.log("⚡ WebSocket error: \(error.localizedDescription)")
+                    self.connectionState = .disconnected
+                }
             }
         }
     }
