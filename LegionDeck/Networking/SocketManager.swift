@@ -50,7 +50,13 @@ final class SocketManager: ObservableObject {
 
     private func connectLoop() async {
         while !Task.isCancelled {
-            await openConnection()
+            openConnection()
+            
+            // Suspend the reconnect loop while we are actively connecting or connected
+            while !Task.isCancelled && connectionState != .disconnected {
+                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s poll
+            }
+            
             guard !Task.isCancelled else { break }
             DebugLogger.shared.log("⏳ Reconnecting in \(Int(backoffSeconds))s…")
             try? await Task.sleep(nanoseconds: UInt64(backoffSeconds * 1_000_000_000))
@@ -58,7 +64,7 @@ final class SocketManager: ObservableObject {
         }
     }
 
-    private func openConnection() async {
+    private func openConnection() {
         guard let url = URL(string: "ws://\(serverIP):8765") else {
             DebugLogger.shared.log("❌ Invalid server URL: \(serverIP)")
             return
