@@ -61,8 +61,8 @@ final class ClipboardSync {
               text != lastReceivedText,
               text != lastSentText else { return }
         lastReceivedText = text
-        UIPasteboard.general.string = text
         let preview = String(text.prefix(40)) + (text.count > 40 ? "…" : "")
         DebugLogger.shared.log("📋 Clipboard ← Windows: '\(preview)'")
+        UIPasteboard.general.string = text
     }
 }
