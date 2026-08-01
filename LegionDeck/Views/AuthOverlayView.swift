@@ -46,7 +46,12 @@ struct AuthOverlayView: View {
                     .padding(.top, 16)
                     
                     Button {
-                        // User can cancel and dismiss on the phone side, but the PC remains locked
+                        // Notify the PC daemon that auth was cancelled
+                        socket.send(payload: [
+                            "action": "cancel_auth",
+                            "app": socket.authRequestApp ?? ""
+                        ])
+                        
                         withAnimation {
                             socket.isAuthRequested = false
                             hasPrompted = false

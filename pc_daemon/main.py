@@ -140,6 +140,22 @@ def _set_window_visibility(pid: int, show: bool = False):
     except Exception as e:
         log.warning(f"Error setting window visibility for PID {pid}: {e}")
 
+def _has_visible_window(pid: int) -> bool:
+    if not WIN32_AVAILABLE:
+        return True
+    visible = [False]
+    def callback(hwnd, _):
+        if win32gui.IsWindowVisible(hwnd):
+            _, found_pid = win32process.GetWindowThreadProcessId(hwnd)
+            if found_pid == pid:
+                visible[0] = True
+        return True
+    try:
+        win32gui.EnumWindows(callback, None)
+    except Exception:
+        pass
+    return visible[0]
+
 # ─── Logging ─────────────────────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
@@ -329,16 +345,17 @@ async def _app_lock_engine():
                 name = proc.info['name']
                 if name and name in LOCKED_APPS:
                     if name not in _authorized_apps and name not in _auth_pending_apps:
-                        _auth_pending_apps.add(name)
-                        log.info(f"Locked {name} detected. Hiding windows and triggering Face ID animation.")
-                        _spawn_faceid_overlay(app=name)
+                        if _has_visible_window(proc.info['pid']):
+                            _auth_pending_apps.add(name)
+                            log.info(f"Locked {name} window detected. Hiding windows and triggering Face ID animation.")
+                            _spawn_faceid_overlay(app=name)
                     
                     # Force hide while unauthorized
-                    if name not in _authorized_apps:
+                    if name in _auth_pending_apps:
                         _set_window_visibility(proc.info['pid'], False)
         except Exception:
             pass
-        await asyncio.sleep(1.0)
+        await asyncio.sleep(0.5)
 
 async def _viewfinder_loop():
     """Streams the primary monitor as JPEG frames over WebSocket."""
@@ -373,7 +390,7 @@ def _faceid_overlay_gui():
     _faceid_overlay_root.configure(bg="black")
     
     # Center the window
-    w, h = 200, 200
+    w, h = 300, 300
     sw = _faceid_overlay_root.winfo_screenwidth()
     sh = _faceid_overlay_root.winfo_screenheight()
     x = (sw - w) // 2
@@ -634,6 +651,13 @@ async def _handle_command(raw: str):
                 log.info(f"Volume set to {int(level)}%")
             except Exception as e:
                 log.error(f"set_volume failed: {e}")
+
+    elif action == "cancel_auth":
+        app_name = msg.get("app")
+        if app_name in _auth_pending_apps:
+            _auth_pending_apps.discard(app_name)
+            _kill_faceid_overlay()
+            log.info(f"Face ID auth cancelled for {app_name}. Resetting pending state.")
 
     elif action == "auth_success":
         app_name = msg.get("app")
