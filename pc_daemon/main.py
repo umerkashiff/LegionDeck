@@ -111,6 +111,35 @@ except ImportError:
 import websockets
 from websockets.server import WebSocketServerProtocol
 
+try:
+    import win32gui
+    import win32process
+    import win32con
+    WIN32_AVAILABLE = True
+except ImportError:
+    WIN32_AVAILABLE = False
+
+def _set_window_visibility(pid: int, show: bool = False):
+    """Hides or shows all top-level windows belonging to a specific Process ID."""
+    if not WIN32_AVAILABLE:
+        return
+    
+    def callback(hwnd, hwnds):
+        if win32gui.IsWindowVisible(hwnd) or show:
+            _, found_pid = win32process.GetWindowThreadProcessId(hwnd)
+            if found_pid == pid:
+                hwnds.append(hwnd)
+        return True
+
+    hwnds = []
+    try:
+        win32gui.EnumWindows(callback, hwnds)
+        cmd = win32con.SW_SHOW if show else win32con.SW_HIDE
+        for hwnd in hwnds:
+            win32gui.ShowWindow(hwnd, cmd)
+    except Exception as e:
+        log.warning(f"Error setting window visibility for PID {pid}: {e}")
+
 # ─── Logging ─────────────────────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
@@ -291,7 +320,7 @@ def _broadcast_event(payload: dict):
             asyncio.create_task(c.send(enc))
 
 async def _app_lock_engine():
-    """Triggers Secure Screen if unauthorized locked apps are detected."""
+    """Hides the window of unauthorized locked apps until FaceID auth is received."""
     while True:
         try:
             for proc in psutil.process_iter(['name', 'pid']):
@@ -299,8 +328,12 @@ async def _app_lock_engine():
                 if name and name in LOCKED_APPS:
                     if name not in _authorized_apps and name not in _auth_pending_apps:
                         _auth_pending_apps.add(name)
-                        log.info(f"Locked {name} detected. Triggering Secure Screen!")
-                        _spawn_secure_screen(app=name)
+                        log.info(f"Locked {name} detected. Hiding windows and requesting FaceID.")
+                        _broadcast_event({"action": "request_auth", "app": name, "type": "app_lock"})
+                    
+                    # Force hide while unauthorized
+                    if name not in _authorized_apps:
+                        _set_window_visibility(proc.info['pid'], False)
         except Exception:
             pass
         await asyncio.sleep(1.0)
@@ -370,6 +403,9 @@ def _bypass_hook():
     for app in list(_auth_pending_apps):
         _auth_pending_apps.discard(app)
         _authorized_apps.add(app)
+        for proc in psutil.process_iter(['name', 'pid']):
+            if proc.info['name'] == app:
+                _set_window_visibility(proc.info['pid'], True)
 
 try:
     keyboard.add_hotkey('ctrl+shift+alt+u', _bypass_hook)
@@ -535,8 +571,7 @@ async def _handle_command(raw: str):
             _authorized_apps.add(app_name)
             for proc in psutil.process_iter(['name', 'pid']):
                 if proc.info['name'] == app_name:
-                    try: proc.resume()
-                    except: pass
+                    _set_window_visibility(proc.info['pid'], True)
             log.info(f"{app_name} unlocked.")
         elif auth_type == "secure_screen":
             _kill_secure_screen()

@@ -12,3 +12,4 @@ keyboard>=0.13.5
 cryptography>=41.0.0
 pystray>=0.19.3
 customtkinter>=5.2.0
+pywin32>=306
