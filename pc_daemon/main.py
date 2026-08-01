@@ -291,7 +291,7 @@ def _broadcast_event(payload: dict):
             asyncio.create_task(c.send(enc))
 
 async def _app_lock_engine():
-    """Suspends locked apps until FaceID auth is received."""
+    """Triggers Secure Screen if unauthorized locked apps are detected."""
     while True:
         try:
             for proc in psutil.process_iter(['name', 'pid']):
@@ -299,15 +299,8 @@ async def _app_lock_engine():
                 if name and name in LOCKED_APPS:
                     if name not in _authorized_apps and name not in _auth_pending_apps:
                         _auth_pending_apps.add(name)
-                        log.info(f"Locked {name}. Suspending all instances & requesting FaceID.")
-                        
-                        # Suspend ALL instances immediately
-                        for p in psutil.process_iter(['name']):
-                            if p.info['name'] == name:
-                                try: p.suspend()
-                                except: pass
-                                
-                        _broadcast_event({"action": "request_auth", "app": name, "type": "app_lock"})
+                        log.info(f"Locked {name} detected. Triggering Secure Screen!")
+                        _spawn_secure_screen(app=name)
         except Exception:
             pass
         await asyncio.sleep(1.0)
@@ -355,12 +348,15 @@ def _secure_screen_gui():
     _secure_screen_root.after(100, check_close)
     _secure_screen_root.mainloop()
 
-def _spawn_secure_screen():
+def _spawn_secure_screen(app=None):
     global _secure_screen_thread_ref
     if _secure_screen_thread_ref and _secure_screen_thread_ref.is_alive():
         return
     log.info("Starting Legion Secure Screen...")
-    _broadcast_event({"action": "request_auth", "type": "secure_screen"})
+    if app:
+        _broadcast_event({"action": "request_auth", "app": app, "type": "app_lock"})
+    else:
+        _broadcast_event({"action": "request_auth", "type": "secure_screen"})
     _secure_screen_thread_ref = threading.Thread(target=_secure_screen_gui, daemon=True)
     _secure_screen_thread_ref.start()
 
@@ -374,10 +370,6 @@ def _bypass_hook():
     for app in list(_auth_pending_apps):
         _auth_pending_apps.discard(app)
         _authorized_apps.add(app)
-        for proc in psutil.process_iter(['name', 'pid']):
-            if proc.info['name'] == app:
-                try: proc.resume()
-                except: pass
 
 try:
     keyboard.add_hotkey('ctrl+shift+alt+u', _bypass_hook)
@@ -708,6 +700,31 @@ class SettingsWindow(ctk.CTk):
         self.apps_entry = ctk.CTkEntry(self.apps_frame, textvariable=self.apps_var)
         self.apps_entry.pack(fill="x", pady=5)
         
+        # ── Smart EXE Picker
+        self.picker_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.picker_frame.pack(fill="x", padx=40, pady=0)
+        
+        # Fetch running processes (unique names, sorted)
+        try:
+            running = sorted(list(set([p.info['name'] for p in psutil.process_iter(['name']) if p.info['name']])))
+        except Exception:
+            running = ["Error fetching processes"]
+            
+        self.process_dropdown = ctk.CTkOptionMenu(self.picker_frame, values=running, dynamic_resizing=False)
+        self.process_dropdown.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        
+        def add_process():
+            selected = self.process_dropdown.get()
+            if selected and selected != "Error fetching processes":
+                current = self.apps_var.get().strip()
+                if current:
+                    self.apps_var.set(f"{current}, {selected}")
+                else:
+                    self.apps_var.set(selected)
+                    
+        self.add_btn = ctk.CTkButton(self.picker_frame, text="Add Running App", command=add_process, width=120)
+        self.add_btn.pack(side="right")
+        
         # ── Save
         self.save_btn = ctk.CTkButton(self, text="Save & Apply", command=self.save_settings)
         self.save_btn.pack(pady=20)
@@ -750,7 +767,7 @@ def _quit_app(icon, item):
 def _setup_tray():
     image = _create_tray_image()
     menu = pystray.Menu(
-        pystray.MenuItem("Settings", _show_settings),
+        pystray.MenuItem("Settings", _show_settings, default=True),
         pystray.MenuItem("Quit", _quit_app)
     )
     icon = pystray.Icon("LegionDeck", image, "LegionDeck Daemon", menu)

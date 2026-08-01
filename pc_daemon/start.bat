@@ -32,11 +32,9 @@ echo [LegionDeck] Verifying dependencies ^(this may take a minute^)...
 .venv\Scripts\pip install -r requirements.txt -q
 
 :: ── Launch daemon ───────────────────────────────────────────────────────────
-echo [LegionDeck] Starting telemetry daemon...
-echo.
-.venv\Scripts\python main.py
+echo [LegionDeck] Starting telemetry daemon in background...
+echo [LegionDeck] You can close this window now. The daemon lives in your System Tray!
+start "" .venv\Scripts\pythonw.exe main.py
 
-:: ── Keep window open on crash ───────────────────────────────────────────────
-echo.
-echo [LegionDeck] Daemon stopped. Press any key to close.
-pause >nul
+exit /b
+
