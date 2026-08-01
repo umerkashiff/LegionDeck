@@ -310,6 +310,8 @@ _auth_pending_apps = set()
 _viewfinder_active = False
 _secure_screen_root = None
 _secure_screen_thread_ref = None
+_faceid_overlay_root = None
+_faceid_overlay_thread_ref = None
 
 def _broadcast_event(payload: dict):
     if _clients:
@@ -328,8 +330,8 @@ async def _app_lock_engine():
                 if name and name in LOCKED_APPS:
                     if name not in _authorized_apps and name not in _auth_pending_apps:
                         _auth_pending_apps.add(name)
-                        log.info(f"Locked {name} detected. Hiding windows and requesting FaceID.")
-                        _broadcast_event({"action": "request_auth", "app": name, "type": "app_lock"})
+                        log.info(f"Locked {name} detected. Hiding windows and triggering Face ID animation.")
+                        _spawn_faceid_overlay(app=name)
                     
                     # Force hide while unauthorized
                     if name not in _authorized_apps:
@@ -359,6 +361,75 @@ async def _viewfinder_loop():
                 await asyncio.sleep(1/15)
             else:
                 await asyncio.sleep(1.0)
+
+def _faceid_overlay_gui():
+    global _faceid_overlay_root
+    _faceid_overlay_root = tk.Tk()
+    _faceid_overlay_root.overrideredirect(True)
+    _faceid_overlay_root.attributes("-topmost", True)
+    
+    # Make black transparent
+    _faceid_overlay_root.attributes("-transparentcolor", "black")
+    _faceid_overlay_root.configure(bg="black")
+    
+    # Center the window
+    w, h = 200, 200
+    sw = _faceid_overlay_root.winfo_screenwidth()
+    sh = _faceid_overlay_root.winfo_screenheight()
+    x = (sw - w) // 2
+    y = (sh - h) // 2
+    _faceid_overlay_root.geometry(f"{w}x{h}+{x}+{y}")
+    
+    # Add a large Face ID / Lock icon
+    lbl = tk.Label(_faceid_overlay_root, text="🔒", font=("Segoe UI Emoji", 72), bg="black", fg="white")
+    lbl.pack(expand=True)
+    
+    _faceid_overlay_root.is_unlocked = False
+    _faceid_overlay_root.should_close = False
+    
+    # Pulse animation
+    pulse_size = 72
+    pulse_dir = -1
+    
+    def animate():
+        nonlocal pulse_size, pulse_dir
+        if _faceid_overlay_root.should_close:
+            _faceid_overlay_root.destroy()
+            return
+            
+        if _faceid_overlay_root.is_unlocked:
+            lbl.config(text="✅", fg="#00FF00", font=("Segoe UI Emoji", 84))
+            _faceid_overlay_root.after(700, lambda: setattr(_faceid_overlay_root, 'should_close', True))
+            return
+            
+        # Breathing animation
+        pulse_size += pulse_dir
+        if pulse_size <= 68: pulse_dir = 1
+        elif pulse_size >= 76: pulse_dir = -1
+        lbl.config(font=("Segoe UI Emoji", pulse_size))
+        
+        _faceid_overlay_root.after(50, animate)
+        
+    _faceid_overlay_root.after(50, animate)
+    _faceid_overlay_root.mainloop()
+
+def _spawn_faceid_overlay(app=None):
+    global _faceid_overlay_thread_ref
+    if _faceid_overlay_thread_ref and _faceid_overlay_thread_ref.is_alive():
+        return
+    log.info("Starting FaceID overlay animation...")
+    if app:
+        _broadcast_event({"action": "request_auth", "app": app, "type": "app_lock"})
+    _faceid_overlay_thread_ref = threading.Thread(target=_faceid_overlay_gui, daemon=True)
+    _faceid_overlay_thread_ref.start()
+
+def _unlock_faceid_overlay():
+    if _faceid_overlay_root:
+        _faceid_overlay_root.is_unlocked = True
+
+def _kill_faceid_overlay():
+    if _faceid_overlay_root:
+        _faceid_overlay_root.should_close = True
 
 def _secure_screen_gui():
     global _secure_screen_root
@@ -400,6 +471,7 @@ def _kill_secure_screen():
 def _bypass_hook():
     log.info("Bypass hook triggered!")
     _kill_secure_screen()
+    _kill_faceid_overlay()
     for app in list(_auth_pending_apps):
         _auth_pending_apps.discard(app)
         _authorized_apps.add(app)
@@ -569,10 +641,17 @@ async def _handle_command(raw: str):
         if auth_type == "app_lock" and app_name:
             _auth_pending_apps.discard(app_name)
             _authorized_apps.add(app_name)
-            for proc in psutil.process_iter(['name', 'pid']):
-                if proc.info['name'] == app_name:
-                    _set_window_visibility(proc.info['pid'], True)
-            log.info(f"{app_name} unlocked.")
+            
+            _unlock_faceid_overlay()
+            
+            async def restore_window():
+                await asyncio.sleep(0.7)
+                for proc in psutil.process_iter(['name', 'pid']):
+                    if proc.info['name'] == app_name:
+                        _set_window_visibility(proc.info['pid'], True)
+                log.info(f"{app_name} unlocked.")
+            
+            asyncio.create_task(restore_window())
         elif auth_type == "secure_screen":
             _kill_secure_screen()
             log.info("Secure screen unlocked via FaceID.")
