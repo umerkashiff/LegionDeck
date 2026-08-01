@@ -103,7 +103,7 @@ except ImportError:
     PYCAW_AVAILABLE = False
 
 try:
-    from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager
+    from winrt.windows.media.control import GlobalSystemMediaTransportControlsSessionManager
     WINSDK_AVAILABLE = True
 except ImportError:
     WINSDK_AVAILABLE = False
