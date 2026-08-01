@@ -25,12 +25,11 @@ if not exist ".venv\Scripts\python.exe" (
         pause
         exit /b 1
     )
-    echo [LegionDeck] Installing dependencies ^(this may take a minute^)...
-    .venv\Scripts\pip install --upgrade pip -q
-    .venv\Scripts\pip install -r requirements.txt -q
-    echo [LegionDeck] Setup complete!
-    echo.
 )
+
+echo [LegionDeck] Verifying dependencies ^(this may take a minute^)...
+.venv\Scripts\pip install --upgrade pip -q
+.venv\Scripts\pip install -r requirements.txt -q
 
 :: ── Launch daemon ───────────────────────────────────────────────────────────
 echo [LegionDeck] Starting telemetry daemon...
