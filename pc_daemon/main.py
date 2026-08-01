@@ -404,6 +404,14 @@ def _faceid_overlay_gui():
     _faceid_overlay_root.is_unlocked = False
     _faceid_overlay_root.should_close = False
     
+    def manual_cancel(event):
+        global _auth_pending_apps
+        _auth_pending_apps.clear()
+        _faceid_overlay_root.should_close = True
+        log.info("Face ID overlay manually cancelled via double-click.")
+        
+    lbl.bind("<Double-1>", manual_cancel)
+    
     # Pulse animation
     pulse_size = 72
     pulse_dir = -1
@@ -761,15 +769,18 @@ async def _broadcast_loop():
 # Entry Point
 # ═══════════════════════════════════════════════════════════════════════════════
 
-async def _main():
-    # Resolve local IP
+def _get_local_ip():
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
-        local_ip = s.getsockname()[0]
+        ip = s.getsockname()[0]
         s.close()
+        return ip
     except Exception:
-        local_ip = "127.0.0.1"
+        return "127.0.0.1"
+
+async def _main():
+    local_ip = _get_local_ip()
 
     print()
     print("=" * 55)
@@ -808,17 +819,21 @@ try:
 except ImportError:
     GUI_AVAILABLE = False
 
-_settings_app = None
+_dashboard_app = None
 
-class SettingsWindow(ctk.CTk):
+class DaemonDashboard(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("LegionDeck Daemon")
-        self.geometry("450x350")
+        self.geometry("450x450")
         self.protocol("WM_DELETE_WINDOW", self.hide_window)
         
-        self.label = ctk.CTkLabel(self, text="LegionDeck Settings", font=ctk.CTkFont(size=20, weight="bold"))
-        self.label.pack(pady=(20, 10))
+        self.label = ctk.CTkLabel(self, text="LegionDeck Dashboard", font=ctk.CTkFont(size=24, weight="bold"))
+        self.label.pack(pady=(20, 5))
+        
+        ip = _get_local_ip()
+        self.ip_lbl = ctk.CTkLabel(self, text=f"IP: {ip}", font=ctk.CTkFont(size=32, weight="bold"), text_color="#00FF00")
+        self.ip_lbl.pack(pady=(0, 20))
         
         # ── Key
         self.key_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -893,13 +908,13 @@ def _create_tray_image():
     return image
 
 def _show_settings(icon, item):
-    if _settings_app:
-        _settings_app.after(0, _settings_app.deiconify)
+    if _dashboard_app:
+        _dashboard_app.after(0, _dashboard_app.deiconify)
 
 def _quit_app(icon, item):
     icon.stop()
-    if _settings_app:
-        _settings_app.after(0, _settings_app.quit)
+    if _dashboard_app:
+        _dashboard_app.after(0, _dashboard_app.quit)
     os._exit(0)
 
 def _setup_tray():
@@ -928,9 +943,9 @@ if __name__ == "__main__":
             threading.Thread(target=_setup_tray, daemon=True).start()
             
             ctk.set_appearance_mode("dark")
-            _settings_app = SettingsWindow()
-            _settings_app.withdraw() # Start hidden
-            _settings_app.mainloop()
+            _dashboard_app = DaemonDashboard()
+            # Start visible instead of hidden!
+            _dashboard_app.mainloop()
         else:
             log.warning("GUI dependencies missing. Running without System Tray.")
             while True: time.sleep(1.0)
